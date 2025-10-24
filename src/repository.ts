@@ -195,9 +195,9 @@ function spawnJJ(
     timeout: getCommandTimeout(options.cwd, options.timeout),
   };
 
-  logger.debug(`spawn: ${jjPath} ${args.join(" ")}`, {
-    spawnOptions: finalOptions,
-  });
+  logger.info(
+    `spawn: ${JSON.stringify([jjPath, ...args])} ${JSON.stringify({ spawnOptions: finalOptions })}`,
+  );
 
   return spawn(jjPath, args, finalOptions);
 }
@@ -317,7 +317,7 @@ export class WorkspaceSourceControlManager {
 
         const repoRoot = (
           await handleCommand(
-            spawnJJ(jjPath.filepath, ["root"], {
+            spawnJJ(jjPath.filepath, ["--ignore-working-copy", "root"], {
               timeout: 5000,
               cwd: workspaceFolder.uri.fsPath,
             }),
@@ -326,7 +326,9 @@ export class WorkspaceSourceControlManager {
           .toString()
           .trim();
 
-        const repoUri = vscode.Uri.file(repoRoot.replace(/^\\\\\?\\UNC\\/, "\\\\")).toString();
+        const repoUri = vscode.Uri.file(
+          repoRoot.replace(/^\\\\\?\\UNC\\/, "\\\\"),
+        ).toString();
 
         if (!newRepoInfos.has(repoUri)) {
           newRepoInfos.set(repoUri, {
@@ -836,7 +838,16 @@ export class JJRepository {
     return (
       await handleJJCommand(
         this.spawnJJ(
-          ["operation", "log", "--limit", "1", "-T", "self.id()", "--no-graph"],
+          [
+            "--ignore-working-copy",
+            "operation",
+            "log",
+            "--limit",
+            "1",
+            "-T",
+            "self.id()",
+            "--no-graph",
+          ],
           {
             cwd: this.repositoryRoot,
           },
@@ -854,7 +865,7 @@ export class JJRepository {
 
     const output = (
       await handleJJCommand(
-        this.spawnJJ(["status", "--color=always"], {
+        this.spawnJJ(["--ignore-working-copy", "status", "--color=always"], {
           timeout: 5000,
           cwd: this.repositoryRoot,
         }),
@@ -874,7 +885,7 @@ export class JJRepository {
   async fileList() {
     return (
       await handleJJCommand(
-        this.spawnJJ(["file", "list"], {
+        this.spawnJJ(["--ignore-working-copy", "file", "list"], {
           timeout: 5000,
           cwd: this.repositoryRoot,
         }),
@@ -922,6 +933,7 @@ export class JJRepository {
       await handleJJCommand(
         this.spawnJJ(
           [
+            "--ignore-working-copy",
             "log",
             "-T",
             template,
@@ -1096,7 +1108,14 @@ export class JJRepository {
   readFile(rev: string, filepath: string) {
     return handleJJCommand(
       this.spawnJJ(
-        ["file", "show", "--revision", rev, filepathToFileset(filepath)],
+        [
+          "--ignore-working-copy",
+          "file",
+          "show",
+          "--revision",
+          rev,
+          filepathToFileset(filepath),
+        ],
         {
           timeout: 5000,
           cwd: this.repositoryRoot,
@@ -1463,6 +1482,7 @@ export class JJRepository {
       await handleJJCommand(
         this.spawnJJ(
           [
+            "--ignore-working-copy",
             "log",
             "-r",
             rev,
@@ -1570,6 +1590,7 @@ export class JJRepository {
       await handleJJCommand(
         this.spawnJJ(
           [
+            "--ignore-working-copy",
             "file",
             "annotate",
             "-r",
@@ -1610,6 +1631,7 @@ export class JJRepository {
       await handleJJCommand(
         this.spawnJJ(
           [
+            "--ignore-working-copy",
             "operation",
             "log",
             "--limit",
@@ -1715,7 +1737,15 @@ export class JJRepository {
         // in case the file was renamed or copied. If we knew the status of the file, we could
         // pass the previous filename in addition to the current filename upon seeing a rename or copy.
         // We don't have the status though, which is why we're using `--summary` here.
-        ["diff", "--summary", "--tool", `${fakeEditorPath}`, "-r", rev],
+        [
+          "--ignore-working-copy",
+          "diff",
+          "--summary",
+          "--tool",
+          `${fakeEditorPath}`,
+          "-r",
+          rev,
+        ],
         {
           timeout: 10_000, // Ensure this is longer than fakeeditor's internal timeout
           cwd: this.repositoryRoot,
