@@ -27,9 +27,12 @@ import { match } from "arktype";
 import { getActiveTextEditorDiff, pathEquals } from "./utils";
 
 export async function activate(context: vscode.ExtensionContext) {
-  const outputChannel = vscode.window.createOutputChannel("Jujutsu Kaizen", {
-    log: true,
-  });
+  const outputChannel = vscode.window.createOutputChannel(
+    "Jujutsu Kaizen (Brian's version)",
+    {
+      log: true,
+    },
+  );
   const loggerTransport = new LogOutputChannelTransport({
     outputChannel,
     format: winston.format.simple(),

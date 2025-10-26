@@ -54,3 +54,22 @@ If you encounter any problems, please [report them on GitHub](https://github.com
 ## 📝 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+## Development installation
+
+Setup:
+
+1. clone this repo
+2. run `npm install`
+3. run `npm run package`
+4. Uninstall the Jujutsu Kaizen extension
+5. Cmd-Shift-P `> Developer Install Extension from Location...` and pick this `jjk` folder
+6. you're done!
+
+Development loop:
+
+1. make changes
+2. `npm run package`
+3. reload vscode window
+
+Related: https://stackoverflow.com/questions/77376281/how-can-i-have-vs-code-recognize-an-extension-folder-manually-placed-in-the-v

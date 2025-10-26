@@ -3,6 +3,14 @@
     "scopeName": "text.jj-commit",
     "patterns": [
         {
+            "comment": "git diff from including `diff.git()` in commit message template",
+            "name": "meta.embedded.diff.jj-commit",
+            "contentName": "source.diff",
+            "begin": "(?=^diff\\ \\-\\-git)",
+            "end": "^(?=JJ:)",
+            "patterns": [ { "include": "source.diff" } ]
+        },
+        {
             "comment": "User supplied message",
             "name": "meta.scope.message.jj-commit",
             "begin": "^(?!JJ:)",
@@ -13,12 +21,8 @@
                     "name": "meta.scope.subject.jj-commit",
                     "match": "\\G.{0,50}(.{0,22}(.*))$",
                     "captures": {
-                        "1": {
-                            "name": "invalid.deprecated.line-too-long.jj-commit"
-                        },
-                        "2": {
-                            "name": "invalid.illegal.line-too-long.jj-commit"
-                        }
+                        "1": { "name": "invalid.deprecated.line-too-long.jj-commit" },
+                        "2": { "name": "invalid.illegal.line-too-long.jj-commit" }
                     }
                 }
             ]
@@ -32,27 +36,15 @@
             "patterns": [
                 {
                     "match": "^JJ:\\s+((M|R) .*)$",
-                    "captures": {
-                        "1": {
-                            "name": "markup.changed.jj-commit"
-                        }
-                    }
+                    "captures": { "1": { "name": "markup.changed.jj-commit" } }
                 },
                 {
                     "match": "^JJ:\\s+(A .*)$",
-                    "captures": {
-                        "1": {
-                            "name": "markup.inserted.jj-commit"
-                        }
-                    }
+                    "captures": { "1": { "name": "markup.inserted.jj-commit" } }
                 },
                 {
                     "match": "^JJ:\\s+(D .*)$",
-                    "captures": {
-                        "1": {
-                            "name": "markup.deleted.jj-commit"
-                        }
-                    }
+                    "captures": { "1": { "name": "markup.deleted.jj-commit" } }
                 }
             ]
         }
