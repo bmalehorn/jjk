@@ -4,7 +4,12 @@ import * as fs from "fs/promises";
 import * as vscode from "vscode";
 
 import type { WorkspaceSourceControlManager } from "../repository";
-import { execJJPromise, getTestWorkspacePath, waitFor } from "./utils";
+import {
+  execJJPromise,
+  getTestWorkspacePath,
+  resetWorkspaceDirectory,
+  waitFor,
+} from "./utils";
 
 type ExtensionTestApi = {
   getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
@@ -21,6 +26,7 @@ suite("Source Control Manager Status", () => {
     assert.ok(api, "Extension did not return test API");
 
     const workspaceSCM = api.getWorkspaceSourceControlManager();
+    await resetWorkspaceDirectory(workspacePath);
     await workspaceSCM.refresh();
 
     const repoSCM = workspaceSCM.repoSCMs[0];
@@ -28,14 +34,7 @@ suite("Source Control Manager Status", () => {
     const file1Path = path.join(workspacePath, "file1.txt");
     const file2Path = path.join(workspacePath, "file2.txt");
 
-    const cleanupCommands = ["abandon @", "abandon @-"];
-
     try {
-      await fs.rm(file1Path, { force: true });
-      await fs.rm(file2Path, { force: true });
-      await execJJPromise("status", { cwd: workspacePath });
-      await repoSCM.checkForUpdates();
-
       await fs.writeFile(file1Path, "file1\n", "utf8");
       await execJJPromise('describe -m "add file1.txt"', {
         cwd: workspacePath,
@@ -88,17 +87,8 @@ suite("Source Control Manager Status", () => {
         }
       );
     } finally {
-      await fs.rm(file2Path, { force: true });
-      await fs.rm(file1Path, { force: true });
-      for (const command of cleanupCommands) {
-        try {
-          await execJJPromise(command, { cwd: workspacePath });
-        } catch {
-          // ignore if there's nothing to abandon
-        }
-      }
-      await execJJPromise("status", { cwd: workspacePath });
-      await repoSCM.checkForUpdates();
+      await resetWorkspaceDirectory(workspacePath);
+      await workspaceSCM.refresh();
     }
   });
 });

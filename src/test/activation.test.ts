@@ -4,7 +4,12 @@ import * as fs from "fs/promises";
 import * as vscode from "vscode";
 
 import { WorkspaceSourceControlManager } from "../repository";
-import { execJJPromise, getTestWorkspacePath, waitFor } from "./utils";
+import {
+  execJJPromise,
+  getTestWorkspacePath,
+  resetWorkspaceDirectory,
+  waitFor,
+} from "./utils";
 
 type ExtensionTestApi = {
   getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
@@ -23,6 +28,7 @@ suite("Extension Activation", () => {
     const workspaceSCM = api.getWorkspaceSourceControlManager();
     assert.ok(workspaceSCM, "WorkspaceSourceControlManager not available");
 
+    await resetWorkspaceDirectory(workspacePath);
     await workspaceSCM.refresh();
     assert.ok(
       workspaceSCM.repoSCMs.length > 0,
@@ -31,13 +37,13 @@ suite("Extension Activation", () => {
 
     const repoSCM = workspaceSCM.repoSCMs[0];
 
-    const newFile = path.join(
+    const markerPath = path.join(
       workspacePath,
-      `activation-test-${Date.now()}.txt`
+      `activation-test-${Date.now().toString(36)}.txt`
     );
 
     try {
-      await fs.writeFile(newFile, "activation test content\n", "utf8");
+      await fs.writeFile(markerPath, "activation test content\n", "utf8");
       await execJJPromise("status", {
         cwd: workspacePath,
       });
@@ -63,11 +69,8 @@ suite("Extension Activation", () => {
         "Expected working copy to contain file statuses"
       );
     } finally {
-      await fs.rm(newFile, { force: true });
-      await execJJPromise("status", {
-        cwd: workspacePath,
-      });
-      await repoSCM.checkForUpdates();
+      await resetWorkspaceDirectory(workspacePath);
+      await workspaceSCM.refresh();
     }
   });
 });
