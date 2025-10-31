@@ -201,6 +201,7 @@ export async function activate(
     statusBarHandleDidChangeActiveTextEditor(vscode.window.activeTextEditor);
 
     const annotationDecoration = vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
       after: {
         margin: "0 0 0 3em",
         textDecoration: "none",
