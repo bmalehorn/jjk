@@ -32,14 +32,14 @@ suite("Extension Activation", () => {
     await workspaceSCM.refresh();
     assert.ok(
       workspaceSCM.repoSCMs.length > 0,
-      "Expected at least one repository to be detected"
+      "Expected at least one repository to be detected",
     );
 
     const repoSCM = workspaceSCM.repoSCMs[0];
 
     const markerPath = path.join(
       workspacePath,
-      `activation-test-${Date.now().toString(36)}.txt`
+      `activation-test-${Date.now().toString(36)}.txt`,
     );
 
     try {
@@ -54,19 +54,19 @@ suite("Extension Activation", () => {
         () => repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
         {
           timeout: 20_000,
-          interval: 250,
+          interval: 50,
           message: "waiting for working copy resource states",
-        }
+        },
       );
 
       assert.strictEqual(
         repoSCM.sourceControl.id,
         "jj",
-        "Expected registered Source Control id to be 'jj'"
+        "Expected registered Source Control id to be 'jj'",
       );
       assert.ok(
         repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
-        "Expected working copy to contain file statuses"
+        "Expected working copy to contain file statuses",
       );
     } finally {
       await resetWorkspaceDirectory(workspacePath);
