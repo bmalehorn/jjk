@@ -18,7 +18,7 @@ async function getJJVersion(jjPath: string): Promise<string> {
       await handleCommand(
         spawn(jjPath, ["version"], {
           timeout: 5000,
-        }),
+        })
       )
     )
       .toString()
@@ -38,7 +38,7 @@ export let fakeEditorPath = "";
 export function initExtensionDir(extensionUri: vscode.Uri) {
   extensionDir = vscode.Uri.joinPath(
     extensionUri,
-    extensionUri.fsPath.includes("extensions") ? "dist" : "src",
+    extensionUri.fsPath.includes("extensions") ? "dist" : "src"
   ).fsPath;
 
   const fakeEditorExecutables: {
@@ -84,14 +84,14 @@ export function initExtensionDir(extensionUri: vscode.Uri) {
       "fakeeditor",
       "zig-out",
       "bin",
-      fakeEditorExecutableName,
+      fakeEditorExecutableName
     );
   }
 }
 
 async function getConfigArgs(
   extensionDir: string,
-  jjVersion: string,
+  jjVersion: string
 ): Promise<string[]> {
   const configPath = path.join(extensionDir, "config.toml");
 
@@ -118,11 +118,11 @@ async function getConfigArgs(
  */
 function getCommandTimeout(
   repositoryRoot: string,
-  defaultTimeout: number | undefined,
+  defaultTimeout: number | undefined
 ): number {
   const config = vscode.workspace.getConfiguration(
     "jjk",
-    vscode.Uri.file(repositoryRoot),
+    vscode.Uri.file(repositoryRoot)
   );
   const configuredTimeout = config.get<number | null>("commandTimeout");
   if (configuredTimeout !== null && configuredTimeout !== undefined) {
@@ -138,7 +138,7 @@ function getCommandTimeout(
 function getIgnoreWorkingCopyArgs(repositoryRoot: string): string[] {
   const config = vscode.workspace.getConfiguration(
     "jjk",
-    vscode.Uri.file(repositoryRoot),
+    vscode.Uri.file(repositoryRoot)
   );
   const ignoreWorkingCopy = config.get<boolean>("ignoreWorkingCopy");
   if (ignoreWorkingCopy) {
@@ -152,13 +152,11 @@ function getIgnoreWorkingCopyArgs(repositoryRoot: string): string[] {
  * If no path is configured, searches through common installation paths before falling back to "jj".
  */
 async function getJJPath(
-  workspaceFolder: string,
+  workspaceFolder: string
 ): Promise<{ filepath: string; source: "configured" | "path" | "common" }> {
   const config = vscode.workspace.getConfiguration(
     "jjk",
-    workspaceFolder !== undefined
-      ? vscode.Uri.file(workspaceFolder)
-      : undefined,
+    workspaceFolder !== undefined ? vscode.Uri.file(workspaceFolder) : undefined
   );
   const configuredPath = config.get<string>("jjPath");
 
@@ -167,7 +165,7 @@ async function getJJPath(
       return { filepath: configuredPath, source: "configured" };
     } else {
       throw new Error(
-        `Configured jjk.jjPath is not an executable file: ${configuredPath}`,
+        `Configured jjk.jjPath is not an executable file: ${configuredPath}`
       );
     }
   }
@@ -204,7 +202,7 @@ async function getJJPath(
 function spawnJJ(
   jjPath: string,
   args: string[],
-  options: Parameters<typeof spawn>[2] & { cwd: string },
+  options: Parameters<typeof spawn>[2] & { cwd: string }
 ) {
   const finalOptions = {
     ...options,
@@ -212,7 +210,9 @@ function spawnJJ(
   };
 
   logger.info(
-    `spawn: ${JSON.stringify([jjPath, ...args])} ${JSON.stringify({ spawnOptions: finalOptions })}`,
+    `spawn: ${JSON.stringify([jjPath, ...args])} ${JSON.stringify({
+      spawnOptions: finalOptions,
+    })}`
   );
 
   return spawn(jjPath, args, finalOptions);
@@ -239,14 +239,18 @@ function handleCommand(childProcess: ChildProcess) {
       if (code) {
         reject(
           new Error(
-            `Command failed with exit code ${code}.\nstdout: ${Buffer.concat(output).toString()}\nstderr: ${Buffer.concat(errOutput).toString()}`,
-          ),
+            `Command failed with exit code ${code}.\nstdout: ${Buffer.concat(
+              output
+            ).toString()}\nstderr: ${Buffer.concat(errOutput).toString()}`
+          )
         );
       } else if (signal) {
         reject(
           new Error(
-            `Command failed with signal ${signal}.\nstdout: ${Buffer.concat(output).toString()}\nstderr: ${Buffer.concat(errOutput).toString()}`,
-          ),
+            `Command failed with signal ${signal}.\nstdout: ${Buffer.concat(
+              output
+            ).toString()}\nstderr: ${Buffer.concat(errOutput).toString()}`
+          )
         );
       } else {
         resolve(Buffer.concat(output));
@@ -310,8 +314,8 @@ export class WorkspaceSourceControlManager {
         {
           isReadonly: true,
           isCaseSensitive: true,
-        },
-      ),
+        }
+      )
     );
   }
 
@@ -339,15 +343,15 @@ export class WorkspaceSourceControlManager {
               {
                 timeout: 5000,
                 cwd: workspaceFolder.uri.fsPath,
-              },
-            ),
+              }
+            )
           )
         )
           .toString()
           .trim();
 
         const repoUri = vscode.Uri.file(
-          repoRoot.replace(/^\\\\\?\\UNC\\/, "\\\\"),
+          repoRoot.replace(/^\\\\\?\\UNC\\/, "\\\\")
         ).toString();
 
         if (!newRepoInfos.has(repoUri)) {
@@ -363,7 +367,9 @@ export class WorkspaceSourceControlManager {
           logger.debug(`No jj repo in ${workspaceFolder.uri.fsPath}`);
         } else {
           logger.error(
-            `Error while initializing jjk in workspace ${workspaceFolder.uri.fsPath}: ${String(e)}`,
+            `Error while initializing jjk in workspace ${
+              workspaceFolder.uri.fsPath
+            }: ${String(e)}`
           );
         }
         continue;
@@ -384,7 +390,7 @@ export class WorkspaceSourceControlManager {
       ) {
         isAnyRepoChanged = true;
         logger.info(
-          `Detected change that requires reinitialization in workspace: ${key}`,
+          `Detected change that requires reinitialization in workspace: ${key}`
         );
       }
     }
@@ -403,7 +409,7 @@ export class WorkspaceSourceControlManager {
         { repoRoot, jjPath, jjVersion, jjConfigArgs },
       ] of newRepoInfos.entries()) {
         logger.info(
-          `Initializing jjk in workspace ${workspaceFolder}. Using ${jjVersion} at ${jjPath.filepath} (${jjPath.source}).`,
+          `Initializing jjk in workspace ${workspaceFolder}. Using ${jjVersion} at ${jjPath.filepath} (${jjPath.source}).`
         );
         const repoSCM = new RepositorySourceControlManager(
           repoRoot,
@@ -411,14 +417,14 @@ export class WorkspaceSourceControlManager {
           this.fileSystemProvider,
           jjPath.filepath,
           jjVersion,
-          jjConfigArgs,
+          jjConfigArgs
         );
         repoSCM.onDidUpdate(
           () => {
             this._onDidRepoUpdate.fire({ repoSCM });
           },
           undefined,
-          repoSCM.subscriptions,
+          repoSCM.subscriptions
         );
         repoSCMs.push(repoSCM);
       }
@@ -438,7 +444,7 @@ export class WorkspaceSourceControlManager {
   }
 
   getRepositoryFromResourceGroup(
-    resourceGroup: vscode.SourceControlResourceGroup,
+    resourceGroup: vscode.SourceControlResourceGroup
   ) {
     return this.repoSCMs.find((repo) => {
       return (
@@ -459,12 +465,18 @@ export class WorkspaceSourceControlManager {
     });
   }
 
-  getRepositorySourceControlManagerFromResourceGroup(resourceGroup: vscode.SourceControlResourceGroup) {
-    return this.repoSCMs.find((repo) => repo.workingCopyResourceGroup === resourceGroup || repo.parentResourceGroups.includes(resourceGroup));
+  getRepositorySourceControlManagerFromResourceGroup(
+    resourceGroup: vscode.SourceControlResourceGroup
+  ) {
+    return this.repoSCMs.find(
+      (repo) =>
+        repo.workingCopyResourceGroup === resourceGroup ||
+        repo.parentResourceGroups.includes(resourceGroup)
+    );
   }
 
   getResourceGroupFromResourceState(
-    resourceState: vscode.SourceControlResourceState,
+    resourceState: vscode.SourceControlResourceState
   ) {
     const resourceUri = resourceState.resourceUri;
 
@@ -477,7 +489,7 @@ export class WorkspaceSourceControlManager {
       for (const group of groups) {
         if (
           group.resourceStates.some(
-            (state) => state.resourceUri.toString() === resourceUri.toString(),
+            (state) => state.resourceUri.toString() === resourceUri.toString()
           )
         ) {
           return group;
@@ -546,25 +558,25 @@ class RepositorySourceControlManager {
     private fileSystemProvider: JJFileSystemProvider,
     jjPath: string,
     jjVersion: string,
-    jjConfigArgs: string[],
+    jjConfigArgs: string[]
   ) {
     this.repository = new JJRepository(
       repositoryRoot,
       jjPath,
       jjVersion,
-      jjConfigArgs,
+      jjConfigArgs
     );
 
     this.sourceControl = vscode.scm.createSourceControl(
       "jj",
       path.basename(repositoryRoot),
-      vscode.Uri.file(repositoryRoot),
+      vscode.Uri.file(repositoryRoot)
     );
     this.subscriptions.push(this.sourceControl);
 
     this.workingCopyResourceGroup = this.sourceControl.createResourceGroup(
       "@",
-      "Working Copy",
+      "Working Copy"
     );
     this.subscriptions.push(this.workingCopyResourceGroup);
 
@@ -586,14 +598,14 @@ class RepositorySourceControlManager {
     const watcherOperations = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(
         path.join(this.repositoryRoot, ".jj/repo/op_store/operations"),
-        "*",
-      ),
+        "*"
+      )
     );
     this.subscriptions.push(watcherOperations);
     const repoChangedWatchEvent = anyEvent(
       watcherOperations.onDidCreate,
       watcherOperations.onDidChange,
-      watcherOperations.onDidDelete,
+      watcherOperations.onDidDelete
     );
     repoChangedWatchEvent(
       async (_uri) => {
@@ -603,7 +615,7 @@ class RepositorySourceControlManager {
         await this.checkForUpdates();
       },
       undefined,
-      this.subscriptions,
+      this.subscriptions
     );
   }
 
@@ -661,7 +673,7 @@ class RepositorySourceControlManager {
       async (parentChange) => {
         const showResult = await this.repository.show(parentChange.changeId);
         return { changeId: parentChange.changeId, showResult };
-      },
+      }
     );
 
     const parentShowResultsArray = await Promise.all(parentShowPromises);
@@ -690,14 +702,14 @@ class RepositorySourceControlManager {
   render() {
     if (!this.status?.workingCopy) {
       throw new Error(
-        "Cannot render source control without a current working copy change.",
+        "Cannot render source control without a current working copy change."
       );
     }
 
     this.workingCopyResourceGroup.label =
       RepositorySourceControlManager.getLabel(
         "Working Copy",
-        this.status.workingCopy,
+        this.status.workingCopy
       );
     this.workingCopyResourceGroup.resourceStates = this.status.fileStatuses.map(
       (fileStatus) => {
@@ -713,24 +725,24 @@ class RepositorySourceControlManager {
               diffOriginalRev: "@",
             }),
             vscode.Uri.file(fileStatus.path),
-            "(Working Copy)",
+            "(Working Copy)"
           ),
         };
-      },
+      }
     );
     this.sourceControl.count = this.status.fileStatuses.length;
 
     const updatedGroups: vscode.SourceControlResourceGroup[] = [];
     for (const group of this.parentResourceGroups) {
       const parentChange = this.status.parentChanges.find(
-        (change) => change.changeId === group.id,
+        (change) => change.changeId === group.id
       );
       if (!parentChange) {
         group.dispose();
       } else {
         group.label = RepositorySourceControlManager.getLabel(
           "Parent Commit",
-          parentChange,
+          parentChange
         );
         updatedGroups.push(group);
       }
@@ -741,15 +753,12 @@ class RepositorySourceControlManager {
       let parentChangeResourceGroup!: vscode.SourceControlResourceGroup;
 
       const parentGroup = this.parentResourceGroups.find(
-        (group) => group.id === parentChange.changeId,
+        (group) => group.id === parentChange.changeId
       );
       if (!parentGroup) {
         parentChangeResourceGroup = this.sourceControl.createResourceGroup(
           parentChange.changeId,
-          RepositorySourceControlManager.getLabel(
-            "Parent Commit",
-            parentChange,
-          ),
+          RepositorySourceControlManager.getLabel("Parent Commit", parentChange)
         );
         this.parentResourceGroups.push(parentChangeResourceGroup);
       } else {
@@ -776,10 +785,10 @@ class RepositorySourceControlManager {
                 toJJUri(vscode.Uri.file(parentStatus.path), {
                   rev: parentChange.changeId,
                 }),
-                `(${parentChange.changeId})`,
+                `(${parentChange.changeId})`
               ),
             };
-          },
+          }
         );
       }
     }
@@ -787,7 +796,7 @@ class RepositorySourceControlManager {
     this.decorationProvider.onRefresh(
       this.fileStatusesByChange,
       this.trackedFiles,
-      this.conflictedFilesByChange,
+      this.conflictedFilesByChange
     );
   }
 
@@ -805,7 +814,7 @@ function getResourceStateCommand(
   fileStatus: FileStatus,
   beforeUri: vscode.Uri,
   afterUri: vscode.Uri,
-  diffTitleSuffix: string,
+  diffTitleSuffix: string
 ): vscode.Command {
   if (fileStatus.type === "A") {
     return {
@@ -844,12 +853,12 @@ export class JJRepository {
     public repositoryRoot: string,
     private jjPath: string,
     private jjVersion: string,
-    private jjConfigArgs: string[],
+    private jjConfigArgs: string[]
   ) {}
 
   spawnJJ(
     args: string[],
-    options: Parameters<typeof spawn>[2] & { cwd: string },
+    options: Parameters<typeof spawn>[2] & { cwd: string }
   ) {
     return spawnJJ(this.jjPath, [...args, ...this.jjConfigArgs], options);
   }
@@ -874,8 +883,8 @@ export class JJRepository {
           ],
           {
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     )
       .toString()
@@ -890,12 +899,16 @@ export class JJRepository {
     const output = (
       await handleJJCommand(
         this.spawnJJ(
-          [...getIgnoreWorkingCopyArgs(this.repositoryRoot), "status", "--color=always"],
+          [
+            ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+            "status",
+            "--color=always",
+          ],
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     ).toString();
     const status = await parseJJStatus(this.repositoryRoot, output);
@@ -917,8 +930,8 @@ export class JJRepository {
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     )
       .toString()
@@ -973,14 +986,14 @@ export class JJRepository {
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     ).toString();
 
     if (!output) {
       throw new Error(
-        "No output from jj log. Maybe the revision couldn't be found?",
+        "No output from jj log. Maybe the revision couldn't be found?"
       );
     }
 
@@ -989,7 +1002,7 @@ export class JJRepository {
       const fields = revResult.split(fieldSeparator);
       if (fields.length > templateFields.length) {
         throw new Error(
-          "Separator found in a field value. This is not supported.",
+          "Separator found in a field value. This is not supported."
         );
       } else if (fields.length < templateFields.length) {
         throw new Error("Missing fields in the output.");
@@ -1073,20 +1086,20 @@ export class JJRepository {
                         status === "added"
                           ? "A"
                           : status === "removed"
-                            ? "D"
-                            : "M",
+                          ? "D"
+                          : "M",
                       file: path.basename(targetPath),
                       path: path.join(this.repositoryRoot, targetPath),
                     });
                   }
                   if (conflict === "true") {
                     ret.conflictedFiles.add(
-                      path.join(this.repositoryRoot, targetPath),
+                      path.join(this.repositoryRoot, targetPath)
                     );
                   }
                 } else {
                   throw new Error(
-                    `Unexpected diff custom summary line: ${line}`,
+                    `Unexpected diff custom summary line: ${line}`
                   );
                 }
               } else {
@@ -1102,13 +1115,15 @@ export class JJRepository {
                         file: parsedPaths.toPath,
                         path: path.join(
                           this.repositoryRoot,
-                          parsedPaths.toPath,
+                          parsedPaths.toPath
                         ),
                         renamedFrom: parsedPaths.fromPath,
                       });
                     } else {
                       throw new Error(
-                        `Unexpected ${type === "R" ? "rename" : "copy"} line: ${line}`,
+                        `Unexpected ${
+                          type === "R" ? "rename" : "copy"
+                        } line: ${line}`
                       );
                     }
                   } else {
@@ -1149,8 +1164,8 @@ export class JJRepository {
         {
           timeout: 5000,
           cwd: this.repositoryRoot,
-        },
-      ),
+        }
+      )
     );
   }
 
@@ -1185,8 +1200,8 @@ export class JJRepository {
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     ).toString();
   }
@@ -1203,8 +1218,8 @@ export class JJRepository {
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       );
     } catch (error) {
       if (error instanceof Error) {
@@ -1290,8 +1305,8 @@ export class JJRepository {
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     ).toString();
   }
@@ -1375,7 +1390,7 @@ export class JJRepository {
           timeout: 10_000, // Ensure this is longer than fakeeditor's internal timeout
           cwd: this.repositoryRoot,
           env: { ...process.env, ...envVars },
-        },
+        }
       );
 
       let fakeEditorOutputBuffer = "";
@@ -1391,7 +1406,7 @@ export class JJRepository {
 
         const output = fakeEditorOutputBuffer.substring(
           0,
-          fakeEditorOutputBuffer.indexOf(FAKEEDITOR_SENTINEL),
+          fakeEditorOutputBuffer.indexOf(FAKEEDITOR_SENTINEL)
         );
 
         const lines = output.trim().split("\n");
@@ -1407,7 +1422,9 @@ export class JJRepository {
               process.kill(parseInt(fakeEditorPID), "SIGTERM");
             } catch (killError) {
               logger.error(
-                `Failed to kill fakeeditor (PID: ${fakeEditorPID}) after validation error: ${killError instanceof Error ? killError : ""}`,
+                `Failed to kill fakeeditor (PID: ${fakeEditorPID}) after validation error: ${
+                  killError instanceof Error ? killError : ""
+                }`
               );
             }
           }
@@ -1429,7 +1446,9 @@ export class JJRepository {
               process.kill(parseInt(fakeEditorPID), "SIGTERM");
             } catch (killError) {
               logger.error(
-                `Failed to kill fakeeditor (PID: ${fakeEditorPID}) after validation error: ${killError instanceof Error ? killError : ""}`,
+                `Failed to kill fakeeditor (PID: ${fakeEditorPID}) after validation error: ${
+                  killError instanceof Error ? killError : ""
+                }`
               );
             }
           }
@@ -1456,7 +1475,7 @@ export class JJRepository {
           .then(() =>
             fs.cp(leftFolderAbsolutePath, rightFolderAbsolutePath, {
               recursive: true,
-            }),
+            })
           )
           .then(() => fs.rm(fileToEdit, { force: true })) // remove the specific file we're about to write to avoid its read-only permissions copied from the left folder
           .then(() => fs.writeFile(fileToEdit, content))
@@ -1467,7 +1486,9 @@ export class JJRepository {
                 process.kill(parseInt(fakeEditorPID), "SIGTERM");
               } catch (killError) {
                 logger.error(
-                  `Failed to send SIGTERM to fakeeditor (PID: ${fakeEditorPID}) during error handling: ${killError instanceof Error ? killError : ""}`,
+                  `Failed to send SIGTERM to fakeeditor (PID: ${fakeEditorPID}) during error handling: ${
+                    killError instanceof Error ? killError : ""
+                  }`
                 );
               }
             }
@@ -1486,14 +1507,14 @@ export class JJRepository {
         if (code) {
           reject(
             new Error(
-              `Command failed with exit code ${code}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${errOutput}`,
-            ),
+              `Command failed with exit code ${code}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${errOutput}`
+            )
           );
         } else if (signal) {
           reject(
             new Error(
-              `Command failed with signal ${signal}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${errOutput}`,
-            ),
+              `Command failed with signal ${signal}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${errOutput}`
+            )
           );
         } else {
           resolve();
@@ -1506,7 +1527,7 @@ export class JJRepository {
     rev: string = "::",
     template: string = "builtin_log_compact",
     limit: number = 50,
-    noGraph: boolean = false,
+    noGraph: boolean = false
   ) {
     return (
       await handleJJCommand(
@@ -1525,8 +1546,8 @@ export class JJRepository {
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     ).toString();
   }
@@ -1555,8 +1576,8 @@ export class JJRepository {
         {
           timeout: 5000,
           cwd: this.repositoryRoot,
-        },
-      ),
+        }
+      )
     );
   }
 
@@ -1592,8 +1613,8 @@ export class JJRepository {
         {
           timeout: 5000,
           cwd: this.repositoryRoot,
-        },
-      ),
+        }
+      )
     );
   }
 
@@ -1605,7 +1626,7 @@ export class JJRepository {
             this.spawnJJ(["git", "fetch"], {
               timeout: 60_000,
               cwd: this.repositoryRoot,
-            }),
+            })
           );
         } finally {
           this.gitFetchPromise = undefined;
@@ -1630,8 +1651,8 @@ export class JJRepository {
           {
             timeout: 60_000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     ).toString();
     if (output === "") {
@@ -1674,8 +1695,8 @@ export class JJRepository {
           {
             timeout: 5000,
             cwd: this.repositoryRoot,
-          },
-        ),
+          }
+        )
       )
     ).toString();
 
@@ -1685,7 +1706,7 @@ export class JJRepository {
       const results = line.split(fieldSeparator);
       if (results.length > templateFields.length) {
         throw new Error(
-          "Separator found in a field value. This is not supported.",
+          "Separator found in a field value. This is not supported."
         );
       } else if (results.length < templateFields.length) {
         throw new Error("Missing fields in the output.");
@@ -1735,7 +1756,7 @@ export class JJRepository {
         this.spawnJJ(["operation", "undo", id], {
           timeout: 5000,
           cwd: this.repositoryRoot,
-        }),
+        })
       )
     ).toString();
   }
@@ -1746,7 +1767,7 @@ export class JJRepository {
         this.spawnJJ(["operation", "restore", id], {
           timeout: 5000,
           cwd: this.repositoryRoot,
-        }),
+        })
       )
     ).toString();
   }
@@ -1756,7 +1777,7 @@ export class JJRepository {
    */
   async getDiffOriginal(
     rev: string,
-    filepath: string,
+    filepath: string
   ): Promise<Buffer | undefined> {
     const { cleanup, envVars } = await prepareFakeeditor();
 
@@ -1779,7 +1800,7 @@ export class JJRepository {
           timeout: 10_000, // Ensure this is longer than fakeeditor's internal timeout
           cwd: this.repositoryRoot,
           env: { ...process.env, ...envVars },
-        },
+        }
       );
 
       let fakeEditorOutputBuffer = "";
@@ -1795,7 +1816,7 @@ export class JJRepository {
 
         const completeOutput = fakeEditorOutputBuffer.substring(
           0,
-          fakeEditorOutputBuffer.indexOf(FAKEEDITOR_SENTINEL),
+          fakeEditorOutputBuffer.indexOf(FAKEEDITOR_SENTINEL)
         );
         resolve(completeOutput);
       });
@@ -1815,22 +1836,28 @@ export class JJRepository {
         if (code) {
           reject(
             new Error(
-              `Command failed with exit code ${code}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${Buffer.concat(errOutput).toString()}`,
-            ),
+              `Command failed with exit code ${code}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${Buffer.concat(
+                errOutput
+              ).toString()}`
+            )
           );
         } else if (signal) {
           reject(
             new Error(
-              `Command failed with signal ${signal}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${Buffer.concat(errOutput).toString()}`,
-            ),
+              `Command failed with signal ${signal}.\nstdout: ${fakeEditorOutputBuffer}\nstderr: ${Buffer.concat(
+                errOutput
+              ).toString()}`
+            )
           );
         } else {
           // This reject will only matter if the promise wasn't resolved already;
           // that means we'll only see this if the command exited without sending the sentinel.
           reject(
             new Error(
-              `Command exited unexpectedly.\nstdout:${fakeEditorOutputBuffer}\nstderr: ${Buffer.concat(errOutput).toString()}`,
-            ),
+              `Command exited unexpectedly.\nstdout:${fakeEditorOutputBuffer}\nstderr: ${Buffer.concat(
+                errOutput
+              ).toString()}`
+            )
           );
         }
       });
@@ -1905,8 +1932,8 @@ export class JJRepository {
         } catch (e) {
           logger.error(
             `Failed to read original file content from left folder at ${fullPath}: ${String(
-              e,
-            )}`,
+              e
+            )}`
           );
           throw e;
         }
@@ -1919,7 +1946,9 @@ export class JJRepository {
         process.kill(parseInt(fakeEditorPID), "SIGTERM");
       } catch (killError) {
         logger.error(
-          `Failed to kill fakeeditor (PID: ${fakeEditorPID}) in getDiffOriginal: ${killError instanceof Error ? killError : ""}`,
+          `Failed to kill fakeeditor (PID: ${fakeEditorPID}) in getDiffOriginal: ${
+            killError instanceof Error ? killError : ""
+          }`
         );
       }
     }
@@ -1976,7 +2005,7 @@ export type Operation = {
 
 async function parseJJStatus(
   repositoryRoot: string,
-  output: string,
+  output: string
 ): Promise<RepositoryStatus> {
   const lines = output.split("\n");
   const fileStatuses: FileStatus[] = [];
@@ -2010,7 +2039,7 @@ async function parseJJStatus(
 
     if (
       ansiStrippedTrimmedLine.includes(
-        "There are unresolved conflicts at these paths:",
+        "There are unresolved conflicts at these paths:"
       )
     ) {
       isParsingConflicts = true;
@@ -2059,7 +2088,7 @@ async function parseJJStatus(
           });
         } else {
           throw new Error(
-            `Unexpected ${type === "R" ? "rename" : "copy"} line: ${line}`,
+            `Unexpected ${type === "R" ? "rename" : "copy"} line: ${line}`
           );
         }
       } else {
@@ -2091,7 +2120,7 @@ async function parseJJStatus(
       }
 
       const descriptionRegions = await extractColoredRegions(
-        descriptionSection.trim(),
+        descriptionSection.trim()
       );
       const cleanedDescription = descriptionRegions
         .filter((region) => !region.colored)
@@ -2193,7 +2222,7 @@ async function stripAnsiCodes(input: string) {
 const renameRegex = /^(.*)\{\s*(.*?)\s*=>\s*(.*?)\s*\}(.*)$/;
 
 export function parseRenamePaths(
-  file: string,
+  file: string
 ): { fromPath: string; toPath: string } | null {
   const renameMatch = renameRegex.exec(file);
   if (renameMatch) {
@@ -2229,7 +2258,9 @@ async function prepareFakeeditor(): Promise<{
         await fs.writeFile(signalFilePath, "");
       } catch (error) {
         throw new Error(
-          `Failed to write signal file '${signalFilePath}': ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to write signal file '${signalFilePath}': ${
+            error instanceof Error ? error.message : String(error)
+          }`
         );
       }
     },
@@ -2238,7 +2269,9 @@ async function prepareFakeeditor(): Promise<{
         await fs.rm(signalDir, { recursive: true, force: true });
       } catch (error) {
         throw new Error(
-          `Failed to cleanup signal directory '${signalDir}': ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to cleanup signal directory '${signalDir}': ${
+            error instanceof Error ? error.message : String(error)
+          }`
         );
       }
     },

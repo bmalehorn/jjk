@@ -26,12 +26,18 @@ import {
 import { match } from "arktype";
 import { getActiveTextEditorDiff, pathEquals } from "./utils";
 
-export async function activate(context: vscode.ExtensionContext) {
+export type ExtensionApi = {
+  getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
+};
+
+export async function activate(
+  context: vscode.ExtensionContext
+): Promise<ExtensionApi> {
   const outputChannel = vscode.window.createOutputChannel(
     "Jujutsu Kaizen (Brian's version)",
     {
       log: true,
-    },
+    }
   );
   const loggerTransport = new LogOutputChannelTransport({
     outputChannel,
@@ -51,7 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const decorationProvider = new JJDecorationProvider((decorationProvider) => {
     context.subscriptions.push(
-      vscode.window.registerFileDecorationProvider(decorationProvider),
+      vscode.window.registerFileDecorationProvider(decorationProvider)
     );
   });
 
@@ -70,7 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
   function setSelectedRepo(repository: JJRepository): void {
     context.workspaceState.update(
       "selectedRepository",
-      repository.repositoryRoot,
+      repository.repositoryRoot
     );
     _onDidSetSelectedRepository.fire();
   }
@@ -83,7 +89,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (selectedRepo) {
       repository =
         workspaceSCM.repoSCMs.find(
-          (repo) => repo.repositoryRoot === selectedRepo,
+          (repo) => repo.repositoryRoot === selectedRepo
         )?.repository || workspaceSCM.repoSCMs[0].repository;
     } else {
       repository = workspaceSCM.repoSCMs[0].repository;
@@ -102,7 +108,7 @@ export async function activate(context: vscode.ExtensionContext) {
       await checkReposFunction();
     },
     undefined,
-    context.subscriptions,
+    context.subscriptions
   );
 
   vscode.workspace.onDidChangeConfiguration(async (e) => {
@@ -126,7 +132,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const graphWebview = new JJGraphWebview(
       context.extensionUri,
       initialSelectedRepo,
-      context,
+      context
     );
     context.subscriptions.push(graphWebview);
     onDidSetSelectedRepository(
@@ -134,14 +140,14 @@ export async function activate(context: vscode.ExtensionContext) {
         await graphWebview.setSelectedRepository(getSelectedRepo());
       },
       undefined,
-      context.subscriptions,
+      context.subscriptions
     );
 
     const operationLogTreeDataProvider = new OperationLogTreeDataProvider(
-      initialSelectedRepo,
+      initialSelectedRepo
     );
     const operationLogManager = new OperationLogManager(
-      operationLogTreeDataProvider,
+      operationLogTreeDataProvider
     );
     context.subscriptions.push(operationLogManager);
     onDidSetSelectedRepository(
@@ -149,7 +155,7 @@ export async function activate(context: vscode.ExtensionContext) {
         await operationLogManager.setSelectedRepo(getSelectedRepo());
       },
       undefined,
-      context.subscriptions,
+      context.subscriptions
     );
 
     context.subscriptions.push(
@@ -163,18 +169,18 @@ export async function activate(context: vscode.ExtensionContext) {
         if (graphWebview.repository.repositoryRoot === repoSCM.repositoryRoot) {
           void graphWebview.refresh();
         }
-      }),
+      })
     );
 
     const statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
-      100,
+      100
     );
     context.subscriptions.push(statusBarItem);
     statusBarItem.command = "jj.gitFetch";
     let lastOpenedFileUri: vscode.Uri | undefined;
     const statusBarHandleDidChangeActiveTextEditor = (
-      editor: vscode.TextEditor | undefined,
+      editor: vscode.TextEditor | undefined
     ) => {
       if (editor && editor.document.uri.scheme === "file") {
         lastOpenedFileUri = editor.document.uri;
@@ -189,8 +195,8 @@ export async function activate(context: vscode.ExtensionContext) {
     };
     context.subscriptions.push(
       vscode.window.onDidChangeActiveTextEditor(
-        statusBarHandleDidChangeActiveTextEditor,
-      ),
+        statusBarHandleDidChangeActiveTextEditor
+      )
     );
     statusBarHandleDidChangeActiveTextEditor(vscode.window.activeTextEditor);
 
@@ -211,7 +217,7 @@ export async function activate(context: vscode.ExtensionContext) {
     let activeLines: number[] = [];
     const setDecorations = async (
       editor: vscode.TextEditor,
-      lines: number[],
+      lines: number[]
     ) => {
       const repository = workspaceSCM.getRepositoryFromUri(editor.document.uri);
       if (!repository) {
@@ -219,7 +225,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const config = vscode.workspace.getConfiguration(
         "jjk",
-        vscode.Uri.file(repository.repositoryRoot),
+        vscode.Uri.file(repository.repositoryRoot)
       );
       if (!config.get("enableAnnotations")) {
         editor.setDecorations(annotationDecoration, []);
@@ -233,7 +239,7 @@ export async function activate(context: vscode.ExtensionContext) {
         activeLines === lines
       ) {
         const safeLines = lines.filter(
-          (line) => line !== annotateInfo!.changeIdsByLine.length,
+          (line) => line !== annotateInfo!.changeIdsByLine.length
         );
         const changes = new Map<string, ChangeWithDetails>(
           await Promise.all(
@@ -242,10 +248,10 @@ export async function activate(context: vscode.ExtensionContext) {
               const showResult = await repository.show(changeId);
               return [changeId, showResult.change] satisfies [
                 string,
-                ChangeWithDetails,
+                ChangeWithDetails
               ];
-            }),
-          ),
+            })
+          )
         );
         if (
           annotateInfo &&
@@ -268,15 +274,16 @@ export async function activate(context: vscode.ExtensionContext) {
                 after: {
                   backgroundColor: "#00000000",
                   color: "#99999959",
-                  contentText: ` ${change.author.name} at ${change.authoredDate} • ${change.description || "(no description)"} • ${change.changeId.substring(
-                    0,
-                    8,
-                  )} `,
+                  contentText: ` ${change.author.name} at ${
+                    change.authoredDate
+                  } • ${
+                    change.description || "(no description)"
+                  } • ${change.changeId.substring(0, 8)} `,
                   textDecoration: "none;",
                 },
               },
               range: editor.document.validateRange(
-                new vscode.Range(line, 2 ** 30 - 1, line, 2 ** 30 - 1),
+                new vscode.Range(line, 2 ** 30 - 1, line, 2 ** 30 - 1)
               ),
             });
           }
@@ -305,7 +312,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const config = vscode.workspace.getConfiguration(
         "jjk",
-        vscode.Uri.file(repository.repositoryRoot),
+        vscode.Uri.file(repository.repositoryRoot)
       );
       if (!config.get("enableAnnotations")) {
         annotateInfo = undefined;
@@ -329,28 +336,26 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     };
     const handleDidChangeActiveTextEditor = async (
-      editor: vscode.TextEditor | undefined,
+      editor: vscode.TextEditor | undefined
     ) => {
       if (editor) {
         const uri = editor.document.uri;
         activeEditorUri = uri;
         await updateAnnotateInfo(uri);
         activeLines = editor.selections.map(
-          (selection) => selection.active.line,
+          (selection) => selection.active.line
         );
         await setDecorations(editor, activeLines);
       }
     };
     context.subscriptions.push(
-      vscode.window.onDidChangeActiveTextEditor(
-        handleDidChangeActiveTextEditor,
-      ),
+      vscode.window.onDidChangeActiveTextEditor(handleDidChangeActiveTextEditor)
     );
     context.subscriptions.push(
       vscode.window.onDidChangeTextEditorSelection(async (e) => {
         activeLines = e.selections.map((selection) => selection.active.line);
         await setDecorations(e.textEditor, activeLines);
-      }),
+      })
     );
     context.subscriptions.push(
       vscode.workspace.onDidChangeTextDocument(async (e) => {
@@ -361,7 +366,7 @@ export async function activate(context: vscode.ExtensionContext) {
         ) {
           await setDecorations(editor, activeLines);
         }
-      }),
+      })
     );
     if (vscode.window.activeTextEditor) {
       void handleDidChangeActiveTextEditor(vscode.window.activeTextEditor);
@@ -382,11 +387,13 @@ export async function activate(context: vscode.ExtensionContext) {
             sourceControl.inputBox.value = "";
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to create change${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to create change${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -404,15 +411,17 @@ export async function activate(context: vscode.ExtensionContext) {
               vscode.Uri.file(resourceState.resourceUri.fsPath),
               {
                 ...opts,
-              },
+              }
             );
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to open file${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to open file${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -438,15 +447,17 @@ export async function activate(context: vscode.ExtensionContext) {
               "vscode.open",
               uri,
               {},
-              `${path.basename(uri.fsPath)} (${rev.substring(0, 8)})`,
+              `${path.basename(uri.fsPath)} (${rev.substring(0, 8)})`
             );
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to open file${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to open file${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -461,40 +472,46 @@ export async function activate(context: vscode.ExtensionContext) {
             const params = getParams(originalUri);
             if (!("diffOriginalRev" in params)) {
               throw new Error(
-                "Original resource does not have a diffOriginalRev. This is a bug.",
+                "Original resource does not have a diffOriginalRev. This is a bug."
               );
             }
             await vscode.commands.executeCommand(
               "vscode.diff",
               originalUri,
               uri,
-              `${path.basename(uri.fsPath)} (${params.diffOriginalRev.substring(0, 8)})`,
+              `${path.basename(uri.fsPath)} (${params.diffOriginalRev.substring(
+                0,
+                8
+              )})`
             );
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to open diff${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to open diff${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     function getSharedResourceGroup(
-      resourceStates: vscode.SourceControlResourceState[],
+      resourceStates: vscode.SourceControlResourceState[]
     ) {
       if (resourceStates.length === 0) {
         throw new Error("No resources found");
       }
 
       const [first, ...rest] = resourceStates;
-      const resourceGroup = workspaceSCM.getResourceGroupFromResourceState(first);
+      const resourceGroup =
+        workspaceSCM.getResourceGroupFromResourceState(first);
 
       for (const resourceState of rest) {
         const stateGroup =
           workspaceSCM.getResourceGroupFromResourceState(resourceState);
         if (stateGroup !== resourceGroup) {
           throw new Error(
-            "All selected resources must belong to the same resource group",
+            "All selected resources must belong to the same resource group"
           );
         }
       }
@@ -517,7 +534,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
               const scm =
                 workspaceSCM.getRepositorySourceControlManagerFromResourceGroup(
-                  resourceGroup,
+                  resourceGroup
                 );
               if (!scm) {
                 throw new Error("SCM not found for resource group");
@@ -530,11 +547,11 @@ export async function activate(context: vscode.ExtensionContext) {
                     throw new Error("No current working copy change found");
                   }
                   const foundStatus = scm.status.fileStatuses.find((status) =>
-                    pathEquals(status.path, resourceState.resourceUri.fsPath),
+                    pathEquals(status.path, resourceState.resourceUri.fsPath)
                   );
                   if (!foundStatus) {
                     throw new Error(
-                      "No file status found for the resource in the working copy change",
+                      "No file status found for the resource in the working copy change"
                     );
                   }
                   return foundStatus;
@@ -544,15 +561,15 @@ export async function activate(context: vscode.ExtensionContext) {
                   const show = scm.parentShowResults.get(resourceGroup.id);
                   if (!show) {
                     throw new Error(
-                      "No current parent change show result found for the resource group",
+                      "No current parent change show result found for the resource group"
                     );
                   }
                   const foundStatus = show.fileStatuses.find((status) =>
-                    pathEquals(status.path, resourceState.resourceUri.fsPath),
+                    pathEquals(status.path, resourceState.resourceUri.fsPath)
                   );
                   if (!foundStatus) {
                     throw new Error(
-                      "No file status found for the resource in the parent change",
+                      "No file status found for the resource in the parent change"
                     );
                   }
                   return foundStatus;
@@ -571,12 +588,14 @@ export async function activate(context: vscode.ExtensionContext) {
               await repository.restoreRetryImmutable(resourceGroup.id, paths);
             } catch (error) {
               vscode.window.showErrorMessage(
-                `Failed to restore${error instanceof Error ? `: ${error.message}` : ""}`,
+                `Failed to restore${
+                  error instanceof Error ? `: ${error.message}` : ""
+                }`
               );
             }
-          },
-        ),
-      ),
+          }
+        )
+      )
     );
 
     context.subscriptions.push(
@@ -605,7 +624,7 @@ export async function activate(context: vscode.ExtensionContext) {
                   parentOptions,
                   {
                     placeHolder: "Select parent to squash into",
-                  },
+                  }
                 );
                 if (!selection) {
                   return;
@@ -638,17 +657,19 @@ export async function activate(context: vscode.ExtensionContext) {
                 toRev: destinationParentChange.changeId,
                 message,
                 filepaths: resourceStates.map(
-                  (state) => state.resourceUri.fsPath,
+                  (state) => state.resourceUri.fsPath
                 ),
               });
             } catch (error) {
               vscode.window.showErrorMessage(
-                `Failed to squash${error instanceof Error ? `: ${error.message}` : ""}`,
+                `Failed to squash${
+                  error instanceof Error ? `: ${error.message}` : ""
+                }`
               );
             }
-          },
-        ),
-      ),
+          }
+        )
+      )
     );
 
     context.subscriptions.push(
@@ -666,11 +687,11 @@ export async function activate(context: vscode.ExtensionContext) {
               const status = await repository.status(true);
 
               const parentChange = status.parentChanges.find(
-                (change) => change.changeId === resourceGroup.id,
+                (change) => change.changeId === resourceGroup.id
               );
               if (parentChange === undefined) {
                 throw new Error(
-                  "Parent change we're squashing from was not found in status",
+                  "Parent change we're squashing from was not found in status"
                 );
               }
 
@@ -697,17 +718,19 @@ export async function activate(context: vscode.ExtensionContext) {
                 toRev: "@",
                 message,
                 filepaths: resourceStates.map(
-                  (state) => state.resourceUri.fsPath,
+                  (state) => state.resourceUri.fsPath
                 ),
               });
             } catch (error) {
               vscode.window.showErrorMessage(
-                `Failed to squash${error instanceof Error ? `: ${error.message}` : ""}`,
+                `Failed to squash${
+                  error instanceof Error ? `: ${error.message}` : ""
+                }`
               );
             }
-          },
-        ),
-      ),
+          }
+        )
+      )
     );
 
     context.subscriptions.push(
@@ -736,11 +759,13 @@ export async function activate(context: vscode.ExtensionContext) {
             await repository.describeRetryImmutable(resourceGroup.id, message);
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to update description${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to update description${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -766,7 +791,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 parentOptions,
                 {
                   placeHolder: "Select parent to squash into",
-                },
+                }
               );
               if (!selection) {
                 return;
@@ -801,12 +826,14 @@ export async function activate(context: vscode.ExtensionContext) {
               });
             } catch (error) {
               vscode.window.showErrorMessage(
-                `Failed to squash${error instanceof Error ? `: ${error.message}` : ""}`,
+                `Failed to squash${
+                  error instanceof Error ? `: ${error.message}` : ""
+                }`
               );
             }
-          },
-        ),
-      ),
+          }
+        )
+      )
     );
 
     context.subscriptions.push(
@@ -822,11 +849,11 @@ export async function activate(context: vscode.ExtensionContext) {
             const status = await repository.status(true);
 
             const parentChange = status.parentChanges.find(
-              (change) => change.changeId === resourceGroup.id,
+              (change) => change.changeId === resourceGroup.id
             );
             if (parentChange === undefined) {
               throw new Error(
-                "Parent change we're squashing from was not found in status",
+                "Parent change we're squashing from was not found in status"
               );
             }
 
@@ -855,12 +882,14 @@ export async function activate(context: vscode.ExtensionContext) {
               });
             } catch (error) {
               vscode.window.showErrorMessage(
-                `Failed to squash${error instanceof Error ? `: ${error.message}` : ""}`,
+                `Failed to squash${
+                  error instanceof Error ? `: ${error.message}` : ""
+                }`
               );
             }
-          },
-        ),
-      ),
+          }
+        )
+      )
     );
 
     context.subscriptions.push(
@@ -877,12 +906,14 @@ export async function activate(context: vscode.ExtensionContext) {
               await repository.restoreRetryImmutable(resourceGroup.id);
             } catch (error) {
               vscode.window.showErrorMessage(
-                `Failed to restore${error instanceof Error ? `: ${error.message}` : ""}`,
+                `Failed to restore${
+                  error instanceof Error ? `: ${error.message}` : ""
+                }`
               );
             }
-          },
-        ),
-      ),
+          }
+        )
+      )
     );
 
     context.subscriptions.push(
@@ -898,11 +929,13 @@ export async function activate(context: vscode.ExtensionContext) {
             await repository.editRetryImmutable(resourceGroup.id);
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to switch to change${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to switch to change${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -911,10 +944,12 @@ export async function activate(context: vscode.ExtensionContext) {
           await graphWebview.refresh();
         } catch (error) {
           vscode.window.showErrorMessage(
-            `Failed to refresh graph${error instanceof Error ? `: ${error.message}` : ""}`,
+            `Failed to refresh graph${
+              error instanceof Error ? `: ${error.message}` : ""
+            }`
           );
         }
-      }),
+      })
     );
 
     context.subscriptions.push(
@@ -929,27 +964,29 @@ export async function activate(context: vscode.ExtensionContext) {
           await graphWebview.repository.new(undefined, revs);
         } catch (error) {
           vscode.window.showErrorMessage(
-            `Failed to create change${error instanceof Error ? `: ${error.message}` : ""}`,
+            `Failed to create change${
+              error instanceof Error ? `: ${error.message}` : ""
+            }`
           );
         }
-      }),
+      })
     );
 
     context.subscriptions.push(
       vscode.commands.registerCommand("jj.selectGraphWebviewRepo", async () => {
         try {
           const repoNames = workspaceSCM.repoSCMs.map(
-            (repo) => repo.repositoryRoot,
+            (repo) => repo.repositoryRoot
           );
           const selectedRepoName = await vscode.window.showQuickPick(
             repoNames,
             {
               placeHolder: "Select a repository",
-            },
+            }
           );
 
           const selectedRepo = workspaceSCM.repoSCMs.find(
-            (repo) => repo.repositoryRoot === selectedRepoName,
+            (repo) => repo.repositoryRoot === selectedRepoName
           );
 
           if (selectedRepo) {
@@ -957,10 +994,12 @@ export async function activate(context: vscode.ExtensionContext) {
           }
         } catch (error) {
           vscode.window.showErrorMessage(
-            `Failed to select repository${error instanceof Error ? `: ${error.message}` : ""}`,
+            `Failed to select repository${
+              error instanceof Error ? `: ${error.message}` : ""
+            }`
           );
         }
-      }),
+      })
     );
 
     context.subscriptions.push(
@@ -969,27 +1008,29 @@ export async function activate(context: vscode.ExtensionContext) {
           await operationLogManager.refresh();
         } catch (error) {
           vscode.window.showErrorMessage(
-            `Failed to refresh operation log${error instanceof Error ? `: ${error.message}` : ""}`,
+            `Failed to refresh operation log${
+              error instanceof Error ? `: ${error.message}` : ""
+            }`
           );
         }
-      }),
+      })
     );
 
     context.subscriptions.push(
       vscode.commands.registerCommand("jj.selectOperationLogRepo", async () => {
         try {
           const repoNames = workspaceSCM.repoSCMs.map(
-            (repo) => repo.repositoryRoot,
+            (repo) => repo.repositoryRoot
           );
           const selectedRepoName = await vscode.window.showQuickPick(
             repoNames,
             {
               placeHolder: "Select a repository",
-            },
+            }
           );
 
           const selectedRepo = workspaceSCM.repoSCMs.find(
-            (repo) => repo.repositoryRoot === selectedRepoName,
+            (repo) => repo.repositoryRoot === selectedRepoName
           );
 
           if (selectedRepo) {
@@ -997,10 +1038,12 @@ export async function activate(context: vscode.ExtensionContext) {
           }
         } catch (error) {
           vscode.window.showErrorMessage(
-            `Failed to select repository${error instanceof Error ? `: ${error.message}` : ""}`,
+            `Failed to select repository${
+              error instanceof Error ? `: ${error.message}` : ""
+            }`
           );
         }
-      }),
+      })
     );
 
     context.subscriptions.push(
@@ -1012,7 +1055,7 @@ export async function activate(context: vscode.ExtensionContext) {
               throw new Error("OperationTreeItem expected");
             }
             const repository = workspaceSCM.getRepositoryFromUri(
-              vscode.Uri.file(item.repositoryRoot),
+              vscode.Uri.file(item.repositoryRoot)
             );
             if (!repository) {
               throw new Error("Repository not found");
@@ -1020,11 +1063,13 @@ export async function activate(context: vscode.ExtensionContext) {
             await repository.operationUndo(item.operation.id);
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to undo operation${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to undo operation${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -1036,7 +1081,7 @@ export async function activate(context: vscode.ExtensionContext) {
               throw new Error("OperationTreeItem expected");
             }
             const repository = workspaceSCM.getRepositoryFromUri(
-              vscode.Uri.file(item.repositoryRoot),
+              vscode.Uri.file(item.repositoryRoot)
             );
             if (!repository) {
               throw new Error("Repository not found");
@@ -1044,11 +1089,13 @@ export async function activate(context: vscode.ExtensionContext) {
             await repository.operationRestore(item.operation.id);
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to restore operation${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to restore operation${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -1062,15 +1109,17 @@ export async function activate(context: vscode.ExtensionContext) {
               ?.gitFetch();
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to fetch from remote${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to fetch from remote${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           } finally {
             statusBarHandleDidChangeActiveTextEditor(
-              vscode.window.activeTextEditor,
+              vscode.window.activeTextEditor
             );
           }
         }
-      }),
+      })
     );
 
     context.subscriptions.push(
@@ -1084,7 +1133,7 @@ export async function activate(context: vscode.ExtensionContext) {
           }
 
           const repository = workspaceSCM.getRepositoryFromUri(
-            textEditor.document.uri,
+            textEditor.document.uri
           );
           if (!repository) {
             return;
@@ -1097,7 +1146,7 @@ export async function activate(context: vscode.ExtensionContext) {
               "all:@+",
               'change_id ++ "\n"',
               undefined,
-              true,
+              true
             );
 
             items.push(
@@ -1114,8 +1163,8 @@ export async function activate(context: vscode.ExtensionContext) {
                       alwaysShow: true,
                       changeId,
                     };
-                  }),
-              )),
+                  })
+              ))
             );
           } catch (_) {
             // No child changes or error, continue with just parents
@@ -1147,10 +1196,11 @@ export async function activate(context: vscode.ExtensionContext) {
             repository: JJRepository,
             diffComputer: ILinesDiffComputer,
             originalUri: vscode.Uri,
-            textEditor: vscode.TextEditor,
+            textEditor: vscode.TextEditor
           ) {
-            const originalDocument =
-              await vscode.workspace.openTextDocument(originalUri);
+            const originalDocument = await vscode.workspace.openTextDocument(
+              originalUri
+            );
             const originalLines = originalDocument.getText().split("\n");
             const editorLines = textEditor.document.getText().split("\n");
             const diff = diffComputer.computeDiff(originalLines, editorLines, {
@@ -1162,7 +1212,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const lineChanges = toLineChanges(diff);
             const selectedLines = toLineRanges(
               textEditor.selections,
-              textEditor.document,
+              textEditor.document
             );
             const selectedChanges = lineChanges
               .map((change) =>
@@ -1170,14 +1220,14 @@ export async function activate(context: vscode.ExtensionContext) {
                   (result, range) =>
                     result ||
                     intersectDiffWithRange(textEditor.document, change, range),
-                  null,
-                ),
+                  null
+                )
               )
               .filter((d) => !!d);
 
             if (!selectedChanges.length) {
               vscode.window.showErrorMessage(
-                "The selection range does not contain any changes.",
+                "The selection range does not contain any changes."
               );
               return;
             }
@@ -1185,7 +1235,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const result = applyLineChanges(
               originalDocument,
               textEditor.document,
-              selectedChanges,
+              selectedChanges
             );
 
             await repository.squashContentRetryImmutable({
@@ -1208,7 +1258,7 @@ export async function activate(context: vscode.ExtensionContext) {
                   "@",
                   status.workingCopy.changeId,
                   status.workingCopy.commitId,
-                ].includes(diffOriginalRev),
+                ].includes(diffOriginalRev)
               )
               .default(() => false)(getParams(diffInput.original))
           ) {
@@ -1216,7 +1266,7 @@ export async function activate(context: vscode.ExtensionContext) {
               repository,
               linesDiffComputers.getDefault(),
               diffInput.original,
-              textEditor,
+              textEditor
             );
           } else if (textEditor.document.uri.scheme === "file") {
             await computeAndSquashSelectedDiff(
@@ -1225,15 +1275,17 @@ export async function activate(context: vscode.ExtensionContext) {
               toJJUri(textEditor.document.uri, {
                 diffOriginalRev: status.workingCopy.commitId,
               }),
-              textEditor,
+              textEditor
             );
           }
         } catch (error) {
           vscode.window.showErrorMessage(
-            `Failed to squash selection${error instanceof Error ? `: ${error.message}` : ""}`,
+            `Failed to squash selection${
+              error instanceof Error ? `: ${error.message}` : ""
+            }`
           );
         }
-      }),
+      })
     );
 
     context.subscriptions.push(
@@ -1265,7 +1317,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 `all:${currentRev}-`,
                 'change_id ++ "\n"',
                 undefined,
-                true,
+                true
               )
             ).trim();
 
@@ -1292,7 +1344,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     alwaysShow: true,
                     changeId,
                   };
-                }),
+                })
               )) satisfies vscode.QuickPickItem[];
 
               const selection = await vscode.window.showQuickPick(items, {
@@ -1314,7 +1366,10 @@ export async function activate(context: vscode.ExtensionContext) {
                 toJJUri(uri, {
                   rev: selectedParentChange,
                 }),
-                `${path.basename(uri.fsPath)} (${selectedParentChange.substring(0, 8)})`,
+                `${path.basename(uri.fsPath)} (${selectedParentChange.substring(
+                  0,
+                  8
+                )})`
               );
             } else {
               await vscode.commands.executeCommand(
@@ -1323,16 +1378,21 @@ export async function activate(context: vscode.ExtensionContext) {
                   rev: selectedParentChange,
                 }),
                 {},
-                `${path.basename(uri.fsPath)} (${selectedParentChange.substring(0, 8)})`,
+                `${path.basename(uri.fsPath)} (${selectedParentChange.substring(
+                  0,
+                  8
+                )})`
               );
             }
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to open parent change${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to open parent change${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     context.subscriptions.push(
@@ -1364,7 +1424,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 `all:${currentRev}+`,
                 'change_id ++ "\n"',
                 undefined,
-                true,
+                true
               )
             ).trim();
 
@@ -1391,7 +1451,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     alwaysShow: true,
                     changeId,
                   };
-                }),
+                })
               )) satisfies vscode.QuickPickItem[];
 
               const selection = await vscode.window.showQuickPick(items, {
@@ -1413,7 +1473,10 @@ export async function activate(context: vscode.ExtensionContext) {
                 toJJUri(uri, {
                   rev: selectedChildChange,
                 }),
-                `${path.basename(uri.fsPath)} (${selectedChildChange.substring(0, 8)})`,
+                `${path.basename(uri.fsPath)} (${selectedChildChange.substring(
+                  0,
+                  8
+                )})`
               );
             } else {
               await vscode.commands.executeCommand(
@@ -1422,16 +1485,21 @@ export async function activate(context: vscode.ExtensionContext) {
                   rev: selectedChildChange,
                 }),
                 {},
-                `${path.basename(uri.fsPath)} (${selectedChildChange.substring(0, 8)})`,
+                `${path.basename(uri.fsPath)} (${selectedChildChange.substring(
+                  0,
+                  8
+                )})`
               );
             }
           } catch (error) {
             vscode.window.showErrorMessage(
-              `Failed to open child change${error instanceof Error ? `: ${error.message}` : ""}`,
+              `Failed to open child change${
+                error instanceof Error ? `: ${error.message}` : ""
+              }`
             );
           }
-        },
-      ),
+        }
+      )
     );
 
     isInitialized = true;
@@ -1453,15 +1521,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Snapshot changes
     await Promise.all(
-      workspaceSCM.repoSCMs.map((repoSCM) => repoSCM.checkForUpdates()),
+      workspaceSCM.repoSCMs.map((repoSCM) => repoSCM.checkForUpdates())
     );
   }
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "jj.refresh",
-      showLoading(() => poll()),
-    ),
+      showLoading(() => poll())
+    )
   );
 
   context.subscriptions.push(
@@ -1476,10 +1544,10 @@ export async function activate(context: vscode.ExtensionContext) {
         });
         await vscode.commands.executeCommand(
           "_workbench.action.openFolderSettings",
-          vscode.Uri.file(repoPath),
+          vscode.Uri.file(repoPath)
         );
-      },
-    ),
+      }
+    )
   );
 
   /**
@@ -1488,12 +1556,12 @@ export async function activate(context: vscode.ExtensionContext) {
    */
   async function checkColocatedRepositories(
     workspaceSCM: WorkspaceSourceControlManager,
-    context: vscode.ExtensionContext,
+    context: vscode.ExtensionContext
   ) {
     // Create a single persistent status bar item
     const statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
-      100,
+      100
     );
     context.subscriptions.push(statusBarItem);
 
@@ -1512,10 +1580,10 @@ export async function activate(context: vscode.ExtensionContext) {
         }
 
         const jjDirExists = await fileExists(
-          vscode.Uri.joinPath(vscode.Uri.file(repoRoot), ".jj"),
+          vscode.Uri.joinPath(vscode.Uri.file(repoRoot), ".jj")
         );
         const gitDirExists = await fileExists(
-          vscode.Uri.joinPath(vscode.Uri.file(repoRoot), ".git"),
+          vscode.Uri.joinPath(vscode.Uri.file(repoRoot), ".git")
         );
 
         if (jjDirExists && gitDirExists) {
@@ -1553,7 +1621,7 @@ export async function activate(context: vscode.ExtensionContext) {
             if (selection === openSettings) {
               vscode.commands.executeCommand(
                 "jj.openFolderGitSettings",
-                repoRoot,
+                repoRoot
               );
             }
           });
@@ -1573,12 +1641,12 @@ export async function activate(context: vscode.ExtensionContext) {
               if (selection === openSettings) {
                 vscode.commands.executeCommand(
                   "jj.openFolderGitSettings",
-                  repoRoot,
+                  repoRoot
                 );
               }
             });
         }
-      }),
+      })
     );
 
     checkReposFunction = checkRepos;
@@ -1591,7 +1659,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (checkReposFunction) {
         await checkReposFunction();
       }
-    }),
+    })
   );
 
   await poll();
@@ -1601,6 +1669,10 @@ export async function activate(context: vscode.ExtensionContext) {
       clearInterval(intervalId);
     },
   });
+
+  return {
+    getWorkspaceSourceControlManager: () => workspaceSCM,
+  };
 }
 
 function showLoading<T extends unknown[]>(
@@ -1612,7 +1684,7 @@ function showLoading<T extends unknown[]>(
       { location: vscode.ProgressLocation.SourceControl },
       async () => {
         await callback(...(args.length ? args : (initialArgs as T)));
-      },
+      }
     );
 }
 
@@ -1666,7 +1738,7 @@ function toLineChanges(diffInformation: LinesDiff): LineChange[] {
 
 function toLineRanges(
   selections: readonly vscode.Selection[],
-  textDocument: vscode.TextDocument,
+  textDocument: vscode.TextDocument
 ): vscode.Range[] {
   const lineRanges = selections.map((s) => {
     const startLine = textDocument.lineAt(s.start.line);
@@ -1712,7 +1784,7 @@ interface LineChange {
 function intersectDiffWithRange(
   textDocument: vscode.TextDocument,
   diff: LineChange,
-  range: vscode.Range,
+  range: vscode.Range
 ): LineChange | null {
   const modifiedRange = getModifiedRange(textDocument, diff);
   const intersection = range.intersection(modifiedRange);
@@ -1754,29 +1826,29 @@ function intersectDiffWithRange(
 
 function getModifiedRange(
   textDocument: vscode.TextDocument,
-  diff: LineChange,
+  diff: LineChange
 ): vscode.Range {
   if (diff.modifiedEndLineNumber === 0) {
     if (diff.modifiedStartLineNumber === 0) {
       return new vscode.Range(
         textDocument.lineAt(diff.modifiedStartLineNumber).range.end,
-        textDocument.lineAt(diff.modifiedStartLineNumber).range.start,
+        textDocument.lineAt(diff.modifiedStartLineNumber).range.start
       );
     } else if (textDocument.lineCount === diff.modifiedStartLineNumber) {
       return new vscode.Range(
         textDocument.lineAt(diff.modifiedStartLineNumber - 1).range.end,
-        textDocument.lineAt(diff.modifiedStartLineNumber - 1).range.end,
+        textDocument.lineAt(diff.modifiedStartLineNumber - 1).range.end
       );
     } else {
       return new vscode.Range(
         textDocument.lineAt(diff.modifiedStartLineNumber - 1).range.end,
-        textDocument.lineAt(diff.modifiedStartLineNumber).range.start,
+        textDocument.lineAt(diff.modifiedStartLineNumber).range.start
       );
     }
   } else {
     return new vscode.Range(
       textDocument.lineAt(diff.modifiedStartLineNumber - 1).range.start,
-      textDocument.lineAt(diff.modifiedEndLineNumber - 1).range.end,
+      textDocument.lineAt(diff.modifiedEndLineNumber - 1).range.end
     );
   }
 }
@@ -1784,7 +1856,7 @@ function getModifiedRange(
 function applyLineChanges(
   original: vscode.TextDocument,
   modified: vscode.TextDocument,
-  diffs: LineChange[],
+  diffs: LineChange[]
 ): string {
   const result: string[] = [];
   let currentLine = 0;
@@ -1807,7 +1879,7 @@ function applyLineChanges(
     }
 
     result.push(
-      original.getText(new vscode.Range(currentLine, 0, endLine, endCharacter)),
+      original.getText(new vscode.Range(currentLine, 0, endLine, endCharacter))
     );
 
     if (!isDeletion) {
@@ -1828,9 +1900,9 @@ function applyLineChanges(
             fromLine,
             fromCharacter,
             diff.modifiedEndLineNumber,
-            0,
-          ),
-        ),
+            0
+          )
+        )
       );
     }
 
@@ -1840,7 +1912,7 @@ function applyLineChanges(
   }
 
   result.push(
-    original.getText(new vscode.Range(currentLine, 0, original.lineCount, 0)),
+    original.getText(new vscode.Range(currentLine, 0, original.lineCount, 0))
   );
 
   return result.join("");

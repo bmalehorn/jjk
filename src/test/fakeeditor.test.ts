@@ -30,12 +30,12 @@ suite("fakeeditor", () => {
       (err: unknown) => {
         assert.ok(
           isExecException(err),
-          "Expected error to be an ExecException",
+          "Expected error to be an ExecException"
         );
         assert.ok(err.code !== undefined, "Expected error to have a code");
         assert.strictEqual(err.code, 1);
         return true;
-      },
+      }
     );
   });
 
@@ -49,12 +49,12 @@ suite("fakeeditor", () => {
       (err: unknown) => {
         assert.ok(
           isExecException(err),
-          "Expected error to be an ExecException",
+          "Expected error to be an ExecException"
         );
         assert.ok(err.code !== undefined, "Expected error to have a code");
         assert.strictEqual(err.code, 1);
         return true;
-      },
+      }
     );
   });
 
@@ -102,7 +102,7 @@ suite("fakeeditor", () => {
 
     assert.ok(
       isProcessRunning(child.pid),
-      "Process should still be running before file is created",
+      "Process should still be running before file is created"
     );
 
     const beforeWrite = Date.now();
@@ -116,7 +116,7 @@ suite("fakeeditor", () => {
     // Should detect and respond to the file within about 2 polling intervals
     assert.ok(
       responseTime <= 150,
-      `Should exit quickly after file creation (took ${responseTime}ms)`,
+      `Should exit quickly after file creation (took ${responseTime}ms)`
     );
   });
 
@@ -134,14 +134,14 @@ suite("fakeeditor", () => {
         const elapsed = Date.now() - startTime;
         assert.ok(
           isExecException(err),
-          "Expected error to be an ExecException",
+          "Expected error to be an ExecException"
         );
         assert.ok(err.code !== undefined, "Expected error to have a code");
         assert.strictEqual(err.code, 1);
         assert.ok(elapsed >= 5000, "Should wait for TOTAL_TIMEOUT");
         assert.ok(elapsed < 5500, "Should not wait much longer than timeout");
         return true;
-      },
+      }
     );
   });
 
@@ -163,12 +163,12 @@ suite("fakeeditor", () => {
       (err: unknown) => {
         assert.ok(
           isExecException(err),
-          "Expected error to be an ExecException",
+          "Expected error to be an ExecException"
         );
         assert.ok(err.code !== undefined, "Expected error to have a code");
         assert.strictEqual(err.code, 1);
         return true;
-      },
+      }
     );
   });
 });

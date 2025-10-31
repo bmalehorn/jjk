@@ -17,7 +17,7 @@ suite("Extension Test Suite", () => {
     });
 
     const output = await execJJPromise(
-      'operation log --limit 1 --no-graph --template "self.id()"',
+      'operation log --limit 1 --no-graph --template "self.id()"'
     );
     originalOperation = output.stdout.trim();
   });
