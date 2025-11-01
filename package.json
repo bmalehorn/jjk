@@ -624,5 +624,8 @@
     "which": "^5.0.0",
     "winston": "^3.17.0",
     "winston-transport": "^4.9.0"
+  },
+  "prettier": {
+    "trailingComma": "es5"
   }
 }

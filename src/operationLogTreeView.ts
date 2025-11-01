@@ -17,16 +17,16 @@ export class OperationLogManager {
   operationLogTreeView: TreeView<OperationTreeItem>;
 
   constructor(
-    public operationLogTreeDataProvider: OperationLogTreeDataProvider,
+    public operationLogTreeDataProvider: OperationLogTreeDataProvider
   ) {
     this.operationLogTreeView = window.createTreeView<OperationTreeItem>(
       "jjOperationLog",
       {
         treeDataProvider: operationLogTreeDataProvider,
-      },
+      }
     );
     this.operationLogTreeView.title = `Operation Log (${path.basename(
-      operationLogTreeDataProvider.getSelectedRepo().repositoryRoot,
+      operationLogTreeDataProvider.getSelectedRepo().repositoryRoot
     )})`;
     this.subscriptions.push(this.operationLogTreeView);
   }
@@ -34,7 +34,7 @@ export class OperationLogManager {
   async setSelectedRepo(repo: JJRepository) {
     await this.operationLogTreeDataProvider.setSelectedRepo(repo);
     this.operationLogTreeView.title = `Operation Log (${path.basename(
-      repo.repositoryRoot,
+      repo.repositoryRoot
     )})`;
   }
 
@@ -50,17 +50,17 @@ export class OperationLogManager {
 export class OperationTreeItem extends TreeItem {
   constructor(
     public readonly operation: Operation,
-    public readonly repositoryRoot: string,
+    public readonly repositoryRoot: string
   ) {
     super(
       operation.tags.startsWith("args: ")
         ? operation.tags.slice(6)
-        : operation.tags,
+        : operation.tags
     );
     this.id = operation.id;
     this.description = operation.description;
     this.tooltip = new MarkdownString(
-      `**${operation.start}**  \n${operation.tags}  \n${operation.description}`,
+      `**${operation.start}**  \n${operation.tags}  \n${operation.description}`
     );
   }
 }
@@ -88,7 +88,7 @@ export class OperationLogTreeDataProvider implements TreeDataProvider<unknown> {
     const prev = this.operationTreeItems;
     const operations = await this.selectedRepository.operationLog();
     this.operationTreeItems = operations.map(
-      (op) => new OperationTreeItem(op, this.selectedRepository.repositoryRoot),
+      (op) => new OperationTreeItem(op, this.selectedRepository.repositoryRoot)
     );
     if (
       prev.length !== this.operationTreeItems.length ||

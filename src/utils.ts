@@ -19,12 +19,12 @@ export function combinedDisposable(disposables: Disposable[]): Disposable {
 
 export function filterEvent<T>(
   event: Event<T>,
-  filter: (e: T) => boolean,
+  filter: (e: T) => boolean
 ): Event<T> {
   return (
     listener: (e: T) => any, // eslint-disable-line @typescript-eslint/no-explicit-any
     thisArgs?: any, // eslint-disable-line @typescript-eslint/no-explicit-any
-    disposables?: Disposable[],
+    disposables?: Disposable[]
   ) => event((e) => filter(e) && listener.call(thisArgs, e), null, disposables); // eslint-disable-line @typescript-eslint/no-unsafe-return
 }
 
@@ -32,10 +32,10 @@ export function anyEvent<T>(...events: Event<T>[]): Event<T> {
   return (
     listener: (e: T) => unknown,
     thisArgs?: unknown,
-    disposables?: Disposable[],
+    disposables?: Disposable[]
   ) => {
     const result = combinedDisposable(
-      events.map((event) => event((i) => listener.call(thisArgs, i))),
+      events.map((event) => event((i) => listener.call(thisArgs, i)))
     );
 
     disposables?.push(result);
@@ -48,7 +48,7 @@ export function onceEvent<T>(event: Event<T>): Event<T> {
   return (
     listener: (e: T) => unknown,
     thisArgs?: unknown,
-    disposables?: Disposable[],
+    disposables?: Disposable[]
   ) => {
     const result = event(
       (e) => {
@@ -56,7 +56,7 @@ export function onceEvent<T>(event: Event<T>): Event<T> {
         return listener.call(thisArgs, e);
       },
       null,
-      disposables,
+      disposables
     );
 
     return result;
@@ -111,7 +111,7 @@ export function pathEquals(a: string, b: string): boolean {
  * @returns A new function that throttles calls to `fn`.
  */
 export function createThrottledAsyncFn<T, A extends unknown[]>(
-  fn: (...args: A) => Promise<T>,
+  fn: (...args: A) => Promise<T>
 ): (...args: A) => Promise<T> {
   enum State {
     Idle,
@@ -195,7 +195,7 @@ export function createThrottledAsyncFn<T, A extends unknown[]>(
           state = State.Idle;
         }
         // Note: We don't re-throw the error here; the original runPromise already handles rejection.
-      },
+      }
     );
 
     // Return the promise for the *current* execution immediately.

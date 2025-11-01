@@ -44,7 +44,7 @@ export class JJDecorationProvider implements FileDecorationProvider {
   onRefresh(
     fileStatusesByChange: Map<string, FileStatus[]>,
     trackedFiles: Set<string>,
-    conflictedFiles: Map<string, Set<string>>,
+    conflictedFiles: Map<string, Set<string>>
   ) {
     if (process.platform === "win32") {
       trackedFiles = convertSetToLowercase(trackedFiles);
@@ -68,7 +68,7 @@ export class JJDecorationProvider implements FileDecorationProvider {
           nextDecorations.set(key, {
             badge: "!",
             color: new ThemeColor(
-              "gitDecoration.conflictingResourceForeground",
+              "gitDecoration.conflictingResourceForeground"
             ),
           });
         } else {
@@ -76,7 +76,7 @@ export class JJDecorationProvider implements FileDecorationProvider {
             ...existingDecoration,
             badge: `${existingDecoration.badge}!`,
             color: new ThemeColor(
-              "gitDecoration.conflictingResourceForeground",
+              "gitDecoration.conflictingResourceForeground"
             ),
           });
         }
@@ -100,10 +100,10 @@ export class JJDecorationProvider implements FileDecorationProvider {
 
     const changedTrackedFiles = new Set<string>([
       ...[...trackedFiles.values()].filter(
-        (file) => !this.trackedFiles.has(file),
+        (file) => !this.trackedFiles.has(file)
       ),
       ...[...this.trackedFiles.values()].filter(
-        (file) => !trackedFiles.has(file),
+        (file) => !trackedFiles.has(file)
       ),
     ]);
 
@@ -140,7 +140,7 @@ export class JJDecorationProvider implements FileDecorationProvider {
   provideFileDecoration(uri: Uri): FileDecoration | undefined {
     if (!this.hasData) {
       throw new Error(
-        "provideFileDecoration was called before data was available",
+        "provideFileDecoration was called before data was available"
       );
     }
     let rev = "@";

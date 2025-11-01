@@ -22,7 +22,7 @@ export class ChangeNode {
     tooltip: string,
     contextValue: string,
     parentChangeIds?: string[],
-    branchType?: string,
+    branchType?: string
   ) {
     this.label = label;
     this.description = description;
@@ -45,7 +45,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     repo: JJRepository,
-    private readonly context: vscode.ExtensionContext,
+    private readonly context: vscode.ExtensionContext
   ) {
     this.repository = repo;
 
@@ -55,12 +55,12 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
         webviewOptions: {
           retainContextWhenHidden: true,
         },
-      }),
+      })
     );
   }
 
   public async resolveWebviewView(
-    webviewView: vscode.WebviewView,
+    webviewView: vscode.WebviewView
   ): Promise<void> {
     this.panel = webviewView;
     this.panel.title = `Source Control Graph (${path.basename(this.repository.repositoryRoot)})`;
@@ -79,7 +79,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
             messageListener.dispose();
             resolve();
           }
-        },
+        }
       );
     });
 
@@ -90,7 +90,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
             await this.repository.editRetryImmutable(message.changeId);
           } catch (error: unknown) {
             vscode.window.showErrorMessage(
-              `Failed to switch to change: ${error as string}`,
+              `Failed to switch to change: ${error as string}`
             );
           }
           break;
@@ -99,7 +99,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
           vscode.commands.executeCommand(
             "setContext",
             "jjGraphView.nodesSelected",
-            message.selectedNodes.length,
+            message.selectedNodes.length
           );
           break;
       }
@@ -150,7 +150,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
       this.extensionUri,
       webviewPath,
       "webview",
-      "graph.css",
+      "graph.css"
     );
     const cssUri = webview.asWebviewUri(cssPath);
 
@@ -159,7 +159,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
       webviewPath === "dist"
         ? "dist/codicons"
         : "node_modules/@vscode/codicons/dist",
-      "codicon.css",
+      "codicon.css"
     );
     const codiconUri = webview.asWebviewUri(codiconPath);
 
@@ -167,7 +167,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
       this.extensionUri,
       webviewPath,
       "webview",
-      "graph.html",
+      "graph.html"
     );
     let html = fs.readFileSync(htmlPath.fsPath, "utf8");
 
@@ -179,7 +179,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
   }
 
   private async getChangeNodesWithParents(
-    changeNodes: ChangeNode[],
+    changeNodes: ChangeNode[]
   ): Promise<ChangeNode[]> {
     const output = await this.repository.log(
       "::", // get all changes
@@ -195,7 +195,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
         )
         `,
       50,
-      false,
+      false
     );
 
     const lines = output.split("\n");
@@ -223,7 +223,7 @@ export class JJGraphWebview implements vscode.WebviewViewProvider {
       // Take only the first 8 characters of each ID
       parentMap.set(
         changeId.substring(0, 8),
-        parentIds.map((id) => id.substring(0, 8)),
+        parentIds.map((id) => id.substring(0, 8))
       );
     }
 
@@ -286,10 +286,10 @@ export function parseJJLog(output: string): ChangeNode[] {
     }
 
     const emailMatch = oddLine.match(
-      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/,
+      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/
     );
     const timestampMatch = oddLine.match(
-      /\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b/,
+      /\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b/
     );
     const symbolsMatch = oddLine.match(/^[^a-zA-Z0-9(]+/);
     const commitIdMatch = oddLine.match(/([a-zA-Z0-9]{8})$/);
@@ -309,8 +309,8 @@ export function parseJJLog(output: string): ChangeNode[] {
         changeId,
         changeId,
         undefined,
-        branchType,
-      ),
+        branchType
+      )
     );
   }
   return changeNodes;

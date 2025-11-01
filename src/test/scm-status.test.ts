@@ -4,11 +4,7 @@ import * as fs from "fs/promises";
 import * as vscode from "vscode";
 
 import type { WorkspaceSourceControlManager } from "../repository";
-import {
-  execJJPromise,
-  getTestWorkspacePath,
-  waitFor,
-} from "./utils";
+import { execJJPromise, getTestWorkspacePath, waitFor } from "./utils";
 
 type ExtensionTestApi = {
   getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
@@ -51,7 +47,7 @@ suite("Source Control Manager Status", () => {
         await repoSCM.checkForUpdates();
         const workingCopyLabel = repoSCM.workingCopyResourceGroup.label;
         const hasFile2 = repoSCM.workingCopyResourceGroup.resourceStates.some(
-          (state) => state.resourceUri.fsPath.endsWith("file2.txt"),
+          (state) => state.resourceUri.fsPath.endsWith("file2.txt")
         );
         return (
           /Working Copy .*add file2\.txt/.test(workingCopyLabel) && hasFile2
@@ -61,27 +57,27 @@ suite("Source Control Manager Status", () => {
         timeout: 10_000,
         interval: 250,
         message: "waiting for working copy to show file2.txt",
-      },
+      }
     );
 
     await waitFor(
       async () => {
         await repoSCM.checkForUpdates();
         const parentGroup = repoSCM.parentResourceGroups.find((group) =>
-          /Parent Commit .*add file1\.txt/.test(group.label),
+          /Parent Commit .*add file1\.txt/.test(group.label)
         );
         if (!parentGroup) {
           return false;
         }
         return parentGroup.resourceStates.some((state) =>
-          state.resourceUri.path.endsWith("/file1.txt"),
+          state.resourceUri.path.endsWith("/file1.txt")
         );
       },
       {
         timeout: 10_000,
         interval: 250,
         message: "waiting for parent commit to show file1.txt",
-      },
+      }
     );
   });
 });

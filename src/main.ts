@@ -249,7 +249,7 @@ export async function activate(
               const showResult = await repository.show(changeId);
               return [changeId, showResult.change] satisfies [
                 string,
-                ChangeWithDetails
+                ChangeWithDetails,
               ];
             })
           )
@@ -1199,9 +1199,8 @@ export async function activate(
             originalUri: vscode.Uri,
             textEditor: vscode.TextEditor
           ) {
-            const originalDocument = await vscode.workspace.openTextDocument(
-              originalUri
-            );
+            const originalDocument =
+              await vscode.workspace.openTextDocument(originalUri);
             const originalLines = originalDocument.getText().split("\n");
             const editorLines = textEditor.document.getText().split("\n");
             const diff = diffComputer.computeDiff(originalLines, editorLines, {

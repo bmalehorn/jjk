@@ -3,7 +3,7 @@ import Mocha from "mocha";
 
 export function run(
   testsRoot: string, // This will be out/test/runner.js
-  cb: (error: unknown, failures?: number) => void,
+  cb: (error: unknown, failures?: number) => void
 ): void {
   const mocha = new Mocha({
     ui: "tdd",
@@ -23,7 +23,7 @@ export function run(
     } catch (error) {
       console.error(
         `Invalid MOCHA_GREP pattern ${JSON.stringify(mochaGrep)}.`,
-        error,
+        error
       );
       throw error;
     }
@@ -32,7 +32,7 @@ export function run(
   // Path to the bundled file containing all tests
   const allTestsBundlePath = path.resolve(
     path.dirname(testsRoot),
-    "all-tests.js",
+    "all-tests.js"
   );
 
   mocha.addFile(allTestsBundlePath);

@@ -56,7 +56,7 @@ export class JJFileSystemProvider implements FileSystemProvider {
     if (!window.state.focused) {
       const onDidFocusWindow = filterEvent(
         window.onDidChangeWindowState,
-        (e) => e.focused,
+        (e) => e.focused
       );
       await eventToPromise(onDidFocusWindow);
     }
@@ -137,13 +137,13 @@ export class JJFileSystemProvider implements FileSystemProvider {
     if ("diffOriginalRev" in params) {
       const originalContent = await repository.getDiffOriginal(
         params.diffOriginalRev,
-        uri.fsPath,
+        uri.fsPath
       );
       if (!originalContent) {
         try {
           const data = await repository.readFile(
             params.diffOriginalRev,
-            uri.fsPath,
+            uri.fsPath
           );
           return data;
         } catch (e) {

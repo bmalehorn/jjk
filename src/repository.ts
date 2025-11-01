@@ -1086,8 +1086,8 @@ export class JJRepository {
                         status === "added"
                           ? "A"
                           : status === "removed"
-                          ? "D"
-                          : "M",
+                            ? "D"
+                            : "M",
                       file: path.basename(targetPath),
                       path: path.join(this.repositoryRoot, targetPath),
                     });
