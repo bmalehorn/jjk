@@ -9,6 +9,7 @@ async function prepareWorkspace(): Promise<{
   workspacePath: string;
   userDataDir: string;
   extensionsDir: string;
+  initialOperationId: string;
 }> {
   const workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), "jjk-test-"));
   const userDataDir = await fs.mkdtemp(
@@ -23,21 +24,31 @@ async function prepareWorkspace(): Promise<{
     cwd: workspacePath,
   });
 
+  await fs.writeFile(
+    path.join(workspacePath, ".gitignore"),
+    ".vscode/\n",
+    "utf8"
+  );
   const settingsDir = path.join(workspacePath, ".vscode");
   await fs.mkdir(settingsDir, { recursive: true });
   await fs.writeFile(path.join(settingsDir, "settings.json"), "{}\n", "utf8");
-
   // Update operation log so Source Control refresh picks up the repository
-  await execJJPromise("status", {
-    cwd: workspacePath,
-  });
+  await execJJPromise("describe -m 'prepareWorkspace'", { cwd: workspacePath });
+  await execJJPromise("new", { cwd: workspacePath });
+  const opLogOutput = await execJJPromise(
+    "operation log --limit 1 --no-graph --template 'self.id()'",
+    {
+      cwd: workspacePath,
+    }
+  );
+  const initialOperationId = opLogOutput.stdout.trim();
 
-  return { workspacePath, userDataDir, extensionsDir };
+  return { workspacePath, userDataDir, extensionsDir, initialOperationId };
 }
 
 async function main() {
   try {
-    const { workspacePath, userDataDir, extensionsDir } =
+    const { workspacePath, userDataDir, extensionsDir, initialOperationId } =
       await prepareWorkspace();
 
     const extensionDevelopmentPath = path.resolve(__dirname, "../../");
@@ -59,6 +70,7 @@ async function main() {
         JJK_TEST_WORKSPACE: workspacePath,
         JJK_TEST_USER_DATA_DIR: userDataDir,
         JJK_TEST_EXT_DIR: extensionsDir,
+        JJK_TEST_INITIAL_OPERATION_ID: initialOperationId,
       },
     });
   } catch (err) {

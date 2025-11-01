@@ -1,27 +1,18 @@
 import * as assert from "assert";
 import * as path from "path";
 import * as fs from "fs/promises";
-import * as vscode from "vscode";
 
-import { WorkspaceSourceControlManager } from "../repository";
-import { execJJPromise, getTestWorkspacePath, waitFor } from "./utils";
-
-type ExtensionTestApi = {
-  getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
-};
+import { execJJPromise, getTestWorkspacePath } from "./utils";
+import { getExtensionApi, restoreOriginalOperation } from "./extensionUtils";
 
 suite("Extension Activation", () => {
   const workspacePath = getTestWorkspacePath();
 
   test("registers JJ Source Control with working copy entries", async () => {
-    const extension = vscode.extensions.getExtension("jjk.jjk");
-    assert.ok(extension, "Extension jjk.jjk not found");
-
-    const api = (await extension.activate()) as ExtensionTestApi | undefined;
-    assert.ok(api, "Extension did not return test API");
+    await restoreOriginalOperation(workspacePath);
+    const api = await getExtensionApi();
 
     const workspaceSCM = api.getWorkspaceSourceControlManager();
-    assert.ok(workspaceSCM, "WorkspaceSourceControlManager not available");
 
     await workspaceSCM.refresh();
     assert.ok(
@@ -43,13 +34,9 @@ suite("Extension Activation", () => {
 
     await repoSCM.checkForUpdates();
 
-    await waitFor(
-      () => repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
-      {
-        timeout: 20_000,
-        interval: 50,
-        message: "waiting for working copy resource states",
-      }
+    assert.ok(
+      repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
+      "Expected resource states to be updated after calling checkForUpdates()"
     );
 
     assert.strictEqual(
