@@ -532,7 +532,7 @@ export function provideOriginalResource(uri: vscode.Uri) {
   return originalUri;
 }
 
-class RepositorySourceControlManager {
+export class RepositorySourceControlManager {
   subscriptions: {
     dispose(): unknown;
   }[] = [];
@@ -951,6 +951,12 @@ export class JJRepository {
   }
 
   async showAll(revsets: string[]) {
+    // If this function requires significant changes, it may be easier
+    // to change this from using things like `ඞjjk` as a separator, and instead
+    // using jj's `.json()` method, then just parsing json.
+    // replace this: ['-T', 'author.name() ++ ""ඞjjk" ++ author.email()]
+    // with this: ['-T', '{"authorName": author.name().json(), "authorEmail": author.name().json()}']
+    // However, it works fine for now.
     const revSeparator = "jjkඞ\n";
     const fieldSeparator = "ඞjjk";
     const summarySeparator = "@?!"; // characters that are illegal in filepaths

@@ -25,6 +25,7 @@ import {
 } from "./vendor/vscode/editor/common/diff/linesDiffComputer";
 import { match } from "arktype";
 import { getActiveTextEditorDiff, pathEquals } from "./utils";
+import { RepositorySourceControlManager } from "./repository";
 
 export type ExtensionApi = {
   getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
@@ -169,17 +170,37 @@ export async function activate(
         if (graphWebview.repository.repositoryRoot === repoSCM.repositoryRoot) {
           void graphWebview.refresh();
         }
+
+        const activeEditor = vscode.window.activeTextEditor;
+        const activeRepo =
+          activeEditor && activeEditor.document.uri.scheme === "file"
+            ? workspaceSCM.getRepositorySourceControlManagerFromUri(
+                activeEditor.document.uri
+              )
+            : undefined;
+        const lastRepo =
+          lastOpenedFileUri !== undefined
+            ? workspaceSCM.getRepositorySourceControlManagerFromUri(
+                lastOpenedFileUri
+              )
+            : undefined;
+        if (
+          activeRepo?.repositoryRoot === repoSCM.repositoryRoot ||
+          lastRepo?.repositoryRoot === repoSCM.repositoryRoot
+        ) {
+          updateStatusBarSummaryItem();
+        }
       })
     );
 
-    const statusBarItem = vscode.window.createStatusBarItem(
+    const statusBarRefreshItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Left,
       100
     );
-    context.subscriptions.push(statusBarItem);
-    statusBarItem.command = "jj.gitFetch";
+    context.subscriptions.push(statusBarRefreshItem);
+    statusBarRefreshItem.command = "jj.gitFetch";
     let lastOpenedFileUri: vscode.Uri | undefined;
-    const statusBarHandleDidChangeActiveTextEditor = (
+    const updateStatusBarRefreshItem = (
       editor: vscode.TextEditor | undefined
     ) => {
       if (editor && editor.document.uri.scheme === "file") {
@@ -187,18 +208,54 @@ export async function activate(
         const repository = workspaceSCM.getRepositoryFromUri(lastOpenedFileUri);
         if (repository) {
           const folderName = repository.repositoryRoot.split("/").at(-1)!;
-          statusBarItem.text = "$(cloud-download)";
-          statusBarItem.tooltip = `${folderName} – Run \`jj git fetch\``;
-          statusBarItem.show();
+          statusBarRefreshItem.text = "$(cloud-download)";
+          statusBarRefreshItem.tooltip = `${folderName} – Run \`jj git fetch\``;
+          statusBarRefreshItem.show();
         }
       }
     };
     context.subscriptions.push(
-      vscode.window.onDidChangeActiveTextEditor(
-        statusBarHandleDidChangeActiveTextEditor
-      )
+      vscode.window.onDidChangeActiveTextEditor(updateStatusBarRefreshItem)
     );
-    statusBarHandleDidChangeActiveTextEditor(vscode.window.activeTextEditor);
+    updateStatusBarRefreshItem(vscode.window.activeTextEditor);
+
+    const statusBarSummaryItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
+      99
+    );
+    context.subscriptions.push(statusBarSummaryItem);
+    const updateStatusBarSummaryItem = (editor?: vscode.TextEditor) => {
+      const candidateUri =
+        editor && editor.document.uri.scheme === "file"
+          ? editor.document.uri
+          : vscode.window.activeTextEditor?.document.uri.scheme === "file"
+            ? vscode.window.activeTextEditor.document.uri
+            : lastOpenedFileUri;
+      if (!candidateUri || candidateUri.scheme !== "file") {
+        statusBarSummaryItem.hide();
+        return;
+      }
+
+      lastOpenedFileUri = candidateUri;
+      const scm =
+        workspaceSCM.getRepositorySourceControlManagerFromUri(candidateUri);
+      if (!scm?.status) {
+        statusBarSummaryItem.hide();
+        return;
+      }
+      const text = RepositorySourceControlManager.getLabel(
+        "",
+        scm.status.workingCopy
+      ).trim();
+      statusBarSummaryItem.text = text;
+      statusBarSummaryItem.show();
+    };
+    // The summary reflects the active file's repo. Update it when the editor changes
+    // and when the underlying repo refreshes via workspaceSCM.onDidRepoUpdate.
+    context.subscriptions.push(
+      vscode.window.onDidChangeActiveTextEditor(updateStatusBarSummaryItem)
+    );
+    updateStatusBarSummaryItem(vscode.window.activeTextEditor);
 
     const annotationDecoration = vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
@@ -1102,8 +1159,8 @@ export async function activate(
     context.subscriptions.push(
       vscode.commands.registerCommand("jj.gitFetch", async () => {
         if (lastOpenedFileUri) {
-          statusBarItem.text = "$(sync~spin)";
-          statusBarItem.tooltip = "Fetching...";
+          statusBarRefreshItem.text = "$(sync~spin)";
+          statusBarRefreshItem.tooltip = "Fetching...";
           try {
             await workspaceSCM
               .getRepositoryFromUri(lastOpenedFileUri)
@@ -1115,9 +1172,7 @@ export async function activate(
               }`
             );
           } finally {
-            statusBarHandleDidChangeActiveTextEditor(
-              vscode.window.activeTextEditor
-            );
+            updateStatusBarRefreshItem(vscode.window.activeTextEditor);
           }
         }
       })
