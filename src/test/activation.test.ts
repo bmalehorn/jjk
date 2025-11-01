@@ -4,12 +4,7 @@ import * as fs from "fs/promises";
 import * as vscode from "vscode";
 
 import { WorkspaceSourceControlManager } from "../repository";
-import {
-  execJJPromise,
-  getTestWorkspacePath,
-  resetWorkspaceDirectory,
-  waitFor,
-} from "./utils";
+import { execJJPromise, getTestWorkspacePath, waitFor } from "./utils";
 
 type ExtensionTestApi = {
   getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
@@ -28,7 +23,6 @@ suite("Extension Activation", () => {
     const workspaceSCM = api.getWorkspaceSourceControlManager();
     assert.ok(workspaceSCM, "WorkspaceSourceControlManager not available");
 
-    await resetWorkspaceDirectory(workspacePath);
     await workspaceSCM.refresh();
     assert.ok(
       workspaceSCM.repoSCMs.length > 0,
@@ -42,35 +36,30 @@ suite("Extension Activation", () => {
       `activation-test-${Date.now().toString(36)}.txt`,
     );
 
-    try {
-      await fs.writeFile(markerPath, "activation test content\n", "utf8");
-      await execJJPromise("status", {
-        cwd: workspacePath,
-      });
+    await fs.writeFile(markerPath, "activation test content\n", "utf8");
+    await execJJPromise("status", {
+      cwd: workspacePath,
+    });
 
-      await repoSCM.checkForUpdates();
+    await repoSCM.checkForUpdates();
 
-      await waitFor(
-        () => repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
-        {
-          timeout: 20_000,
-          interval: 50,
-          message: "waiting for working copy resource states",
-        },
-      );
+    await waitFor(
+      () => repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
+      {
+        timeout: 20_000,
+        interval: 50,
+        message: "waiting for working copy resource states",
+      },
+    );
 
-      assert.strictEqual(
-        repoSCM.sourceControl.id,
-        "jj",
-        "Expected registered Source Control id to be 'jj'",
-      );
-      assert.ok(
-        repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
-        "Expected working copy to contain file statuses",
-      );
-    } finally {
-      await resetWorkspaceDirectory(workspacePath);
-      await workspaceSCM.refresh();
-    }
+    assert.strictEqual(
+      repoSCM.sourceControl.id,
+      "jj",
+      "Expected registered Source Control id to be 'jj'",
+    );
+    assert.ok(
+      repoSCM.workingCopyResourceGroup.resourceStates.length > 0,
+      "Expected working copy to contain file statuses",
+    );
   });
 });

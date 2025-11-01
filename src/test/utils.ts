@@ -1,7 +1,5 @@
 import { exec } from "child_process";
 import { inspect } from "util";
-import * as fs from "fs/promises";
-import * as path from "path";
 
 /**
  * Gets the jj executable path to use in tests.
@@ -95,27 +93,4 @@ export async function waitFor(
     );
   }
   throw new Error(`Timed out waiting for condition${detail}`);
-}
-
-export async function resetWorkspaceDirectory(
-  workspacePath: string,
-): Promise<void> {
-  const entries = await fs.readdir(workspacePath);
-  await Promise.all(
-    entries.map((entry) =>
-      fs.rm(path.join(workspacePath, entry), { recursive: true, force: true }),
-    ),
-  );
-
-  await execJJPromise("git init", {
-    cwd: workspacePath,
-    timeout: 5_000,
-  });
-  const settingsDir = path.join(workspacePath, ".vscode");
-  await fs.mkdir(settingsDir, { recursive: true });
-  await fs.writeFile(path.join(settingsDir, "settings.json"), "{}\n", "utf8");
-  await execJJPromise("status", {
-    cwd: workspacePath,
-    timeout: 5_000,
-  });
 }
