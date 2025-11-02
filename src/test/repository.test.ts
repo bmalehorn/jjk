@@ -1,9 +1,10 @@
 import * as assert from "assert";
 import { parseRenamePaths } from "../repository"; // Adjust path as needed
-import { getTestWorkspacePath } from "./utils";
-import { getExtensionApi } from "./extensionUtils";
+import { execJJPromise, getTestWorkspacePath } from "./utils";
+import { getExtensionApi, restoreOriginalOperation } from "./extensionUtils";
 
 import * as fs from "fs/promises";
+import path from "path";
 
 suite("repository", () => {
   test("should handle rename with no prefix or suffix", () => {
@@ -123,5 +124,50 @@ suite("repository", () => {
       "Expected repository root to match the test workspace path"
     );
   });
-  
+
+  test("showAll", async () => {
+    await restoreOriginalOperation(workspacePath);
+    const api = await getExtensionApi();
+    const repositories = api.getRepositories();
+    assert.ok(
+      repositories.length === 1,
+      "expected only one repository in the test workspace"
+    );
+    const repository = repositories[0];
+    const file1Path = path.join(workspacePath, "file1.txt");
+    await fs.writeFile(file1Path, "file1 contents\n", "utf8");
+    await execJJPromise("describe -m 'add file1.txt'", {
+      cwd: workspacePath,
+    });
+    await execJJPromise("new", {
+      cwd: workspacePath,
+    });
+    const file2Path = path.join(workspacePath, "file2.txt");
+    await fs.writeFile(file2Path, "file2 contents\n", "utf8");
+    await execJJPromise("describe -m 'add file2.txt'", {
+      cwd: workspacePath,
+    });
+
+    const allChanges = await repository.showAll(["@"]);
+    assert.ok(
+      allChanges.length === 1,
+      "expected exactly 1 changes returned from showAll"
+    );
+    assert.ok(
+      allChanges[0].change.description === "add file2.txt",
+      'expected first change description to be "add file2.txt"'
+    );
+    assert.ok(
+      allChanges[0].fileStatuses.length === 1,
+      "expected first change to have exactly 1 file status"
+    );
+    assert.ok(
+      allChanges[0].fileStatuses[0].file === "file2.txt",
+      'expected first file status file to be "file2.txt"'
+    );
+    assert.ok(
+      allChanges[0].fileStatuses[0].type === "A",
+      'expected first file status type to be "A" (added)'
+    );
+  });
 });
