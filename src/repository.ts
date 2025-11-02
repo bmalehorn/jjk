@@ -1653,6 +1653,9 @@ export class JJRepository {
             "-r",
             rev,
             filepath, // `jj file annotate` takes a path, not a fileset
+            "-T",
+            // log only outputs the 8-character change id, which is all we want.
+            `commit.change_id().shortest(8) ++ "\\n"`,
           ],
           {
             timeout: 60_000,
@@ -1665,8 +1668,7 @@ export class JJRepository {
       return [];
     }
     const lines = output.trim().split("\n");
-    const changeIdsByLine = lines.map((line) => line.split(" ")[0]);
-    return changeIdsByLine;
+    return lines;
   }
 
   async operationLog(): Promise<Operation[]> {

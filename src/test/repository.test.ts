@@ -125,7 +125,7 @@ suite("repository", () => {
     );
   });
 
-  test("showAll", async () => {
+  const setupRepository = async () => {
     await restoreOriginalOperation(workspacePath);
     const api = await getExtensionApi();
     const repositories = api.getRepositories();
@@ -133,7 +133,11 @@ suite("repository", () => {
       repositories.length === 1,
       "expected only one repository in the test workspace"
     );
-    const repository = repositories[0];
+    return repositories[0];
+  };
+
+  test("showAll", async () => {
+    const repository = await setupRepository();
     const file1Path = path.join(workspacePath, "file1.txt");
     await fs.writeFile(file1Path, "file1 contents\n", "utf8");
     await execJJPromise("describe -m 'add file1.txt'", {
@@ -168,6 +172,64 @@ suite("repository", () => {
     assert.ok(
       allChanges[0].fileStatuses[0].type === "A",
       'expected first file status type to be "A" (added)'
+    );
+  });
+
+  const getRevAt = async (at: string) => {
+    const logOutput = await execJJPromise(
+      `log -r '${at}' --no-graph --limit 1 --template 'self.change_id().shortest(8)'`,
+      {
+        cwd: workspacePath,
+      }
+    );
+    const rev = logOutput.stdout.trim();
+    return rev;
+  };
+
+  test("annotate", async () => {
+    const repository = await setupRepository();
+
+    const filePath = path.join(workspacePath, "file.txt");
+    await fs.writeFile(
+      filePath,
+      "change1 line1\nchange1 line2\nchange1 line3\n",
+      "utf8"
+    );
+    await execJJPromise("describe -m 'add file.txt'", {
+      cwd: workspacePath,
+    });
+    const firstChangeRev = await getRevAt("@");
+    await execJJPromise("new", { cwd: workspacePath });
+    await fs.writeFile(
+      filePath,
+      "change1 line1\nchange2 line2\nchange1 line3\n",
+      "utf8"
+    );
+    await execJJPromise("describe -m 'update file.txt'", {
+      cwd: workspacePath,
+    });
+    const secondChangeRev = await getRevAt("@");
+
+    const annotations = await repository.annotate("file.txt", "@");
+
+    assert.ok(
+      annotations.length === 3,
+      "expected exactly 3 lines of annotation"
+    );
+    assert.strictEqual(
+      annotations[0],
+      firstChangeRev,
+      "expected line 1 to be attributed to first change"
+    );
+    assert.strictEqual(
+      annotations[1],
+      secondChangeRev,
+      "expected line 2 to be attributed to second change"
+    );
+    assert.strictEqual(
+      annotations[2],
+      firstChangeRev,
+      "expected line 3 to be attributed to first change"
     );
   });
 });
