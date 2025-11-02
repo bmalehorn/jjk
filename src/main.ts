@@ -29,6 +29,7 @@ import { RepositorySourceControlManager } from "./repository";
 
 export type ExtensionApi = {
   getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
+  getRepositories(): JJRepository[];
 };
 
 export async function activate(
@@ -1727,6 +1728,8 @@ export async function activate(
 
   return {
     getWorkspaceSourceControlManager: () => workspaceSCM,
+    getRepositories: () =>
+      workspaceSCM.repoSCMs.map((repoSCM) => repoSCM.repository),
   };
 }
 

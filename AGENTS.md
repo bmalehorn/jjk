@@ -28,6 +28,7 @@
 - Mocha (TDD UI) drives tests; each suite is imported by `src/test/all-tests.ts`. Export new describe blocks there to include them in the bundle.
 - Exercise repository flows with the fake editor harness (`src/fakeeditor/testdata`) to simulate jj interactions without touching real repos.
 - Execute `npm test` locally; aim for coverage on new change-management paths and error handling. Document any flaky cases in the PR.
+- Run `MOCHA_GREP=<pattern> npm test` to focus on specific tests during development.
 
 ## Commit & Pull Request Guidelines
 

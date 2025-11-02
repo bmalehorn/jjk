@@ -1,7 +1,11 @@
 import * as assert from "assert";
 import { parseRenamePaths } from "../repository"; // Adjust path as needed
+import { getTestWorkspacePath } from "./utils";
+import { getExtensionApi } from "./extensionUtils";
 
-suite("parseRenamePaths", () => {
+import * as fs from "fs/promises";
+
+suite("repository", () => {
   test("should handle rename with no prefix or suffix", () => {
     const input = "{old => new}";
     const expected = {
@@ -99,4 +103,25 @@ suite("parseRenamePaths", () => {
     const input = "";
     assert.strictEqual(parseRenamePaths(input), null);
   });
+
+  const workspacePath = getTestWorkspacePath();
+
+  test("is exposed through the extension api", async () => {
+    const api = await getExtensionApi();
+    const repositories = api.getRepositories();
+
+    assert.ok(
+      repositories.length > 0,
+      "Expected at least one JJRepository instance"
+    );
+    const repositoryRoot = await fs.realpath(repositories[0].repositoryRoot);
+    const expectedRoot = await fs.realpath(workspacePath);
+
+    assert.strictEqual(
+      repositoryRoot,
+      expectedRoot,
+      "Expected repository root to match the test workspace path"
+    );
+  });
+  
 });
