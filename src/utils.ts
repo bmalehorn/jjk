@@ -1,5 +1,6 @@
 import { sep } from "path";
 import { Event, Disposable, window, TabInputTextDiff } from "vscode";
+import { logger } from "./logger";
 
 export const isMacintosh = process.platform === "darwin";
 export const isWindows = process.platform === "win32";
@@ -229,4 +230,133 @@ export function getActiveTextEditorDiff(): TabInputTextDiff | undefined {
   }
 
   return activeTab.input;
+}
+
+type Waiter<T> = {
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+};
+
+export class Lock {
+  // make a new promise, which is immediately resolves - start in "unlocked" state.
+  lockPromise: Promise<unknown> = new Promise((resolve) => resolve(null));
+
+  // when an entry is not present, there are no promises waiting for that or running it.
+  // When an entry is `[]`, that means the check's in the mail - there's a promise that will update it later.
+  // Each entry in the list is a Promise that wants that return value.
+  // When the queued function returns, it will resolve all those promises with the returned value (or reject them if rejected).
+  deduplicationKeyToWaiters: Map<string, Waiter<unknown>[]> = new Map();
+
+  // It might also not be correct that if you have 5 messages enqueued, they all
+  // get the same result as the 1st caller. I might instead want to have the
+  // first 4 callers get a cached result, but the final one to re-run the
+  // command so someone gets a completely up-to-date result. Think "running
+  // blame on every keystroke" - you want to make sure you run blame on the
+  // final result at least once. lodash.debounce or a similar method might do
+  // this.
+
+  // fulfilled & rejection are handled the same way, the same rejection is
+  // passed to both. Note that the same object will be returned in both cases,
+  // so you'll probably want to not modify the object result - avoid returning
+  // something consumable. I think this does not apply to us because this is
+  // only used to return a `Buffer` object that we do not modify, only call
+  // .toString() on.
+
+  // It might also be nicer to make make this accept an object, or do an overload, to make
+  // deduplicationKey explicit.
+  acquire<T>(fn: () => Promise<T>, deduplicationKey?: string): Promise<T> {
+    logger.info(
+      `acquire: deduplicationKey=${deduplicationKey}, this.deduplicationKeyToWaiters=${JSON.stringify(Array.from(this.deduplicationKeyToWaiters.entries()))}`
+    );
+    if (!deduplicationKey) {
+      this.lockPromise = this.lockPromise.then(fn, fn);
+      return this.lockPromise as Promise<T>;
+    }
+
+    const waiters = this.deduplicationKeyToWaiters.get(deduplicationKey);
+    logger.info(`acquire: waiters=${JSON.stringify(waiters)}`);
+    if (waiters !== undefined) {
+      logger.info(`acquire: waiters present. Enqueueing myself & stopping.`);
+      // Make a new Promise, put it in the queue, and return that
+      let waiter: Waiter<T> | null = null;
+      const promise = new Promise<T>((resolve, reject) => {
+        waiter = { resolve, reject };
+      });
+      if (waiter === null) {
+        throw new Error(
+          `Waiter should not be null here, should have been set by Promise(). Is that not called synchronously?`
+        );
+      }
+      waiters.push(waiter);
+      return promise;
+    }
+
+    // now, waiters is undefined.
+    // This means I am the first to handle this request.
+    // Let's start by registering that and setting waiters to [].
+    this.deduplicationKeyToWaiters.set(deduplicationKey, []);
+
+    // This function is called when it's this function's "turn".
+    const promiseCallback = async (): Promise<T> => {
+      logger.info(
+        `acquire: promiseCallback for deduplicationKey='${deduplicationKey}`
+      );
+
+      let outcome:
+        | {
+            isResolved: true;
+            result: T;
+          }
+        | {
+            isResolved: false;
+            reason: unknown;
+          };
+      try {
+        const result = await fn();
+        outcome = { isResolved: true, result };
+      } catch (reason) {
+        outcome = { isResolved: false, reason };
+      }
+      const waiters = this.deduplicationKeyToWaiters.get(deduplicationKey);
+      if (waiters === undefined) {
+        throw new Error(
+          `waitersAfterRun was undefined on completion of deduplicationKey='${deduplicationKey}', but the contract is that it should remain a list until this promise is completed. How did it get set to undefined?`
+        );
+      }
+      const resolveOrRejectAllWaiters = () => {
+        logger.info(
+          `acquire: resolveOrRejectAllWaiters for deduplicationKey='${deduplicationKey}', waiters.length=${waiters.length}, outcome.isResolved=${outcome.isResolved}`
+        );
+        if (outcome.isResolved) {
+          for (const waiter of waiters) {
+            waiter.resolve(outcome.result);
+          }
+        } else {
+          for (const waiter of waiters) {
+            waiter.reject(outcome.reason);
+          }
+        }
+      };
+      // By calling with setTimeout(resolveOrRejectAllWaiters, 0), we only resolve
+      // the other waiters after this current call is resolved. So, all acquisitions
+      // will be resolved in the order they were called.
+      // I think in our current use this doesn't matter, but it makes sense that
+      // call #1 should return before call #2, especially if call #1 is the one
+      // providing the value for call #2.
+      setTimeout(resolveOrRejectAllWaiters, 0);
+
+      // With all waiters handled, reset the state.
+      this.deduplicationKeyToWaiters.delete(deduplicationKey);
+
+      // Finally, return the result we acquired earlier.
+      if (outcome.isResolved) {
+        return outcome.result;
+      } else {
+        throw outcome.reason;
+      }
+    };
+
+    this.lockPromise = this.lockPromise.then(promiseCallback, promiseCallback);
+    return this.lockPromise as Promise<T>;
+  }
 }

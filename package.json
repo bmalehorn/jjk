@@ -442,7 +442,14 @@
           "default": false,
           "description": "Use --ignore-working-copy for read-only commands to prevent automatic working copy snapshots. This prevents divergent changesets from passive monitoring, but modified files may not auto-update until the next manual jj command.",
           "scope": "resource"
+        },
+        "jjk.preventConcurrent": {
+          "type": "boolean",
+          "default": false,
+          "description": "Prevent running more than one `jj` command at the same time. Set to true to make each jj command initiated by this extension run in sequence. This prevents divergent changesets & stale working copies from being created from this extension's passive monitoring alone, but may cause some fasterj operations (e.g. status) to block on slower operations (e.g. file annotate).",
+          "scope": "resource"
         }
+
       }
     },
     "configurationDefaults": {

@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as path from "path";
 import * as fs from "fs/promises";
 
-import { execJJPromise, getTestWorkspacePath } from "./utils";
+import { execJJPromise, getTestWorkspacePath } from "./testUtils";
 import { getExtensionApi, restoreOriginalOperation } from "./extensionUtils";
 
 suite("Source Control Manager Status", () => {

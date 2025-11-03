@@ -2,7 +2,7 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 import type { ExtensionApi } from "../main";
-import { execJJPromise } from "./utils";
+import { execJJPromise } from "./testUtils";
 
 export async function getExtensionApi(): Promise<ExtensionApi> {
   // Gets the running extension, refreshes it, and returns it.

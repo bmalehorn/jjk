@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
-import { execPromise } from "./utils";
+import { execPromise } from "./testUtils";
 import { fakeEditorPath, initExtensionDir } from "../repository";
 import * as vscode from "vscode";
 import { ExecException, spawn } from "child_process";

@@ -5,3 +5,4 @@ import "./main.test";
 import "./repository.test";
 import "./fakeeditor.test";
 import "./activation.test";
+import "./utils.test";

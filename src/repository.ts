@@ -6,7 +6,7 @@ import { getParams, toJJUri } from "./uri";
 import type { JJDecorationProvider } from "./decorationProvider";
 import { logger } from "./logger";
 import type { ChildProcess } from "child_process";
-import { anyEvent, pathEquals } from "./utils";
+import { anyEvent, Lock, pathEquals } from "./utils";
 import { JJFileSystemProvider } from "./fileSystemProvider";
 import * as os from "os";
 import * as crypto from "crypto";
@@ -209,7 +209,7 @@ function spawnJJ(
     timeout: getCommandTimeout(options.cwd, options.timeout),
   };
 
-  logger.info(
+  logger.debug(
     `spawn: ${JSON.stringify([jjPath, ...args])} ${JSON.stringify({
       spawnOptions: finalOptions,
     })}`
@@ -848,6 +848,7 @@ function getResourceStateCommand(
 export class JJRepository {
   statusCache: RepositoryStatus | undefined;
   gitFetchPromise: Promise<void> | undefined;
+  concurrentExecutionLock: Lock = new Lock();
 
   constructor(
     public repositoryRoot: string,
@@ -863,28 +864,91 @@ export class JJRepository {
     return spawnJJ(this.jjPath, [...args, ...this.jjConfigArgs], options);
   }
 
+  // 1.
+  // It would probably be a good idea to also handle ignoreWorkingCopy here.
+  // Have an additional argument named "isLogicallyReadOnly", check if the
+  // vscode setting is enabled, and if both are true add `--ignore-working-copy`.
+  // Or I could inspect args (<cmd> in `jj <cmd>`), check against an allowlist
+  // of "logically read-only" (status, operation log, file annotate), and only
+  // run
+
+  // 2.
+  // It might be useful to run some commands with preventConcurrent and others
+  // with --ignore-working-copy; these two commands can be mixed and matched
+  // so long as:
+  //   a. all logically read-only operations are run with --ignoreWorkingCopy or
+  //      preventConcurrent
+  //   b. all logically write operations are run with preventConcurrent
+  // There is a tradeoff in option a depending on if the command makes more
+  // sense with stale results or slow results.
+  async spawnAndHandleJJCommand(
+    args: string[],
+    options: Parameters<typeof spawn>[2] & { cwd: string }
+  ): Promise<Buffer<ArrayBufferLike>> {
+    const config = vscode.workspace.getConfiguration(
+      "jjk",
+      vscode.Uri.file(this.repositoryRoot)
+    );
+    const preventConcurrent = config.get<boolean>("preventConcurrent");
+    const finalArgs = [...args, ...this.jjConfigArgs];
+    if (!preventConcurrent) {
+      const childProcess = spawnJJ(this.jjPath, finalArgs, options);
+      const result = await handleJJCommand(childProcess);
+      return result;
+    }
+    logger.info(`spawnAndHandleJJCommand: enqueue jj ${args.join(" ")}`);
+    const enqueuedAt = new Date();
+
+    // Here, we are really combining two different features:
+    // serialization of statements, and deduplication of in-flight requests.
+    // These could be separate settings, since I really only want deduplication right now.
+
+    // It's debatable what information is lost with deduplication too.
+    // It might make sense to only run it for `op log` and `log` statements which
+    // are run super often.
+
+    // Anyways: neither point matters much if the queue is never very backed up
+    // and generally runs things immediately.
+    const deduplicationKey = JSON.stringify({ finalArgs, options });
+    const result = await this.concurrentExecutionLock.acquire(async () => {
+      const startedAt = new Date();
+      const queueTime = +startedAt - +enqueuedAt;
+      logger.info(
+        `spawnAndHandleJJCommand: started jj args=${args.join(" ")}, queueTime=${queueTime}`
+      );
+
+      const childProcess = spawnJJ(this.jjPath, finalArgs, options);
+      const result = await handleJJCommand(childProcess);
+      return result;
+    }, deduplicationKey);
+    const endedAt = new Date();
+    const endToEndTime = +endedAt - +enqueuedAt;
+    logger.info(
+      `spawnAndHandleJJCommand: ended jj args=${args.join(" ")}, endToEndTime=${endToEndTime}`
+    );
+    return result;
+  }
+
   /**
    * Note: this command may itself snapshot the working copy and add an operation to the log, in which case it will
    * return the new operation id.
    */
   async getLatestOperationId() {
     return (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
-            "operation",
-            "log",
-            "--limit",
-            "1",
-            "-T",
-            "self.id()",
-            "--no-graph",
-          ],
-          {
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+          "operation",
+          "log",
+          "--limit",
+          "1",
+          "-T",
+          "self.id()",
+          "--no-graph",
+        ],
+        {
+          cwd: this.repositoryRoot,
+        }
       )
     )
       .toString()
@@ -897,18 +961,16 @@ export class JJRepository {
     }
 
     const output = (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
-            "status",
-            "--color=always",
-          ],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+          "status",
+          "--color=always",
+        ],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       )
     ).toString();
     const status = await parseJJStatus(this.repositoryRoot, output);
@@ -924,14 +986,12 @@ export class JJRepository {
 
   async fileList() {
     return (
-      await handleJJCommand(
-        this.spawnJJ(
-          [...getIgnoreWorkingCopyArgs(this.repositoryRoot), "file", "list"],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [...getIgnoreWorkingCopyArgs(this.repositoryRoot), "file", "list"],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       )
     )
       .toString()
@@ -979,21 +1039,19 @@ export class JJRepository {
       ` ++ "${revSeparator}"`;
 
     const output = (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
-            "log",
-            "-T",
-            template,
-            "--no-graph",
-            ...revsets.flatMap((revset) => ["-r", revset]),
-          ],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+          "log",
+          "-T",
+          template,
+          "--no-graph",
+          ...revsets.flatMap((revset) => ["-r", revset]),
+        ],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       )
     ).toString();
 
@@ -1157,21 +1215,19 @@ export class JJRepository {
   }
 
   readFile(rev: string, filepath: string) {
-    return handleJJCommand(
-      this.spawnJJ(
-        [
-          ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
-          "file",
-          "show",
-          "--revision",
-          rev,
-          filepathToFileset(filepath),
-        ],
-        {
-          timeout: 5000,
-          cwd: this.repositoryRoot,
-        }
-      )
+    return this.spawnAndHandleJJCommand(
+      [
+        ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+        "file",
+        "show",
+        "--revision",
+        rev,
+        filepathToFileset(filepath),
+      ],
+      {
+        timeout: 5000,
+        cwd: this.repositoryRoot,
+      }
     );
   }
 
@@ -1194,38 +1250,34 @@ export class JJRepository {
 
   async describe(rev: string, message: string, ignoreImmutable = false) {
     return (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            "describe",
-            "-m",
-            message,
-            rev,
-            ...(ignoreImmutable ? ["--ignore-immutable"] : []),
-          ],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          "describe",
+          "-m",
+          message,
+          rev,
+          ...(ignoreImmutable ? ["--ignore-immutable"] : []),
+        ],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       )
     ).toString();
   }
 
   async new(message?: string, revs?: string[]) {
     try {
-      return await handleJJCommand(
-        this.spawnJJ(
-          [
-            "new",
-            ...(message ? ["-m", message] : []),
-            ...(revs ? ["-r", ...revs] : []),
-          ],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      return await this.spawnAndHandleJJCommand(
+        [
+          "new",
+          ...(message ? ["-m", message] : []),
+          ...(revs ? ["-r", ...revs] : []),
+        ],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       );
     } catch (error) {
       if (error instanceof Error) {
@@ -1294,25 +1346,23 @@ export class JJRepository {
     ignoreImmutable?: boolean;
   }) {
     return (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            "squash",
-            "--from",
-            fromRev,
-            "--into",
-            toRev,
-            ...(message ? ["-m", message] : []),
-            ...(filepaths
-              ? filepaths.map((filepath) => filepathToFileset(filepath))
-              : []),
-            ...(ignoreImmutable ? ["--ignore-immutable"] : []),
-          ],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          "squash",
+          "--from",
+          fromRev,
+          "--into",
+          toRev,
+          ...(message ? ["-m", message] : []),
+          ...(filepaths
+            ? filepaths.map((filepath) => filepathToFileset(filepath))
+            : []),
+          ...(ignoreImmutable ? ["--ignore-immutable"] : []),
+        ],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       )
     ).toString();
   }
@@ -1536,24 +1586,22 @@ export class JJRepository {
     noGraph: boolean = false
   ) {
     return (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
-            "log",
-            "-r",
-            rev,
-            "-n",
-            limit.toString(),
-            "-T",
-            template,
-            ...(noGraph ? ["--no-graph"] : []),
-          ],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+          "log",
+          "-r",
+          rev,
+          "-n",
+          limit.toString(),
+          "-T",
+          template,
+          ...(noGraph ? ["--no-graph"] : []),
+        ],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       )
     ).toString();
   }
@@ -1576,14 +1624,12 @@ export class JJRepository {
   }
 
   async edit(rev: string, ignoreImmutable = false) {
-    return await handleJJCommand(
-      this.spawnJJ(
-        ["edit", "-r", rev, ...(ignoreImmutable ? ["--ignore-immutable"] : [])],
-        {
-          timeout: 5000,
-          cwd: this.repositoryRoot,
-        }
-      )
+    return await this.spawnAndHandleJJCommand(
+      ["edit", "-r", rev, ...(ignoreImmutable ? ["--ignore-immutable"] : [])],
+      {
+        timeout: 5000,
+        cwd: this.repositoryRoot,
+      }
     );
   }
 
@@ -1605,22 +1651,20 @@ export class JJRepository {
   }
 
   async restore(rev?: string, filepaths?: string[], ignoreImmutable = false) {
-    return await handleJJCommand(
-      this.spawnJJ(
-        [
-          "restore",
-          "--changes-in",
-          rev ? rev : "@",
-          ...(filepaths
-            ? filepaths.map((filepath) => filepathToFileset(filepath))
-            : []),
-          ...(ignoreImmutable ? ["--ignore-immutable"] : []),
-        ],
-        {
-          timeout: 5000,
-          cwd: this.repositoryRoot,
-        }
-      )
+    return await this.spawnAndHandleJJCommand(
+      [
+        "restore",
+        "--changes-in",
+        rev ? rev : "@",
+        ...(filepaths
+          ? filepaths.map((filepath) => filepathToFileset(filepath))
+          : []),
+        ...(ignoreImmutable ? ["--ignore-immutable"] : []),
+      ],
+      {
+        timeout: 5000,
+        cwd: this.repositoryRoot,
+      }
     );
   }
 
@@ -1628,12 +1672,10 @@ export class JJRepository {
     if (!this.gitFetchPromise) {
       this.gitFetchPromise = (async () => {
         try {
-          await handleJJCommand(
-            this.spawnJJ(["git", "fetch"], {
-              timeout: 60_000,
-              cwd: this.repositoryRoot,
-            })
-          );
+          await this.spawnAndHandleJJCommand(["git", "fetch"], {
+            timeout: 60_000,
+            cwd: this.repositoryRoot,
+          });
         } finally {
           this.gitFetchPromise = undefined;
         }
@@ -1644,24 +1686,22 @@ export class JJRepository {
 
   async annotate(filepath: string, rev: string): Promise<string[]> {
     const output = (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
-            "file",
-            "annotate",
-            "-r",
-            rev,
-            filepath, // `jj file annotate` takes a path, not a fileset
-            "-T",
-            // log only outputs the 8-character change id, which is all we want.
-            `commit.change_id().shortest(8) ++ "\\n"`,
-          ],
-          {
-            timeout: 60_000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+          "file",
+          "annotate",
+          "-r",
+          rev,
+          filepath, // `jj file annotate` takes a path, not a fileset
+          "-T",
+          // log only outputs the 8-character change id, which is all we want.
+          `commit.change_id().shortest(8) ++ "\\n"`,
+        ],
+        {
+          timeout: 60_000,
+          cwd: this.repositoryRoot,
+        }
       )
     ).toString();
     if (output === "") {
@@ -1687,24 +1727,22 @@ export class JJRepository {
       ` ++ "${operationSeparator}"`;
 
     const output = (
-      await handleJJCommand(
-        this.spawnJJ(
-          [
-            ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
-            "operation",
-            "log",
-            "--limit",
-            "10",
-            "--no-graph",
-            "--at-operation=@",
-            "-T",
-            template,
-          ],
-          {
-            timeout: 5000,
-            cwd: this.repositoryRoot,
-          }
-        )
+      await this.spawnAndHandleJJCommand(
+        [
+          ...getIgnoreWorkingCopyArgs(this.repositoryRoot),
+          "operation",
+          "log",
+          "--limit",
+          "10",
+          "--no-graph",
+          "--at-operation=@",
+          "-T",
+          template,
+        ],
+        {
+          timeout: 5000,
+          cwd: this.repositoryRoot,
+        }
       )
     ).toString();
 
@@ -1760,23 +1798,19 @@ export class JJRepository {
 
   async operationUndo(id: string) {
     return (
-      await handleJJCommand(
-        this.spawnJJ(["operation", "undo", id], {
-          timeout: 5000,
-          cwd: this.repositoryRoot,
-        })
-      )
+      await this.spawnAndHandleJJCommand(["operation", "undo", id], {
+        timeout: 5000,
+        cwd: this.repositoryRoot,
+      })
     ).toString();
   }
 
   async operationRestore(id: string) {
     return (
-      await handleJJCommand(
-        this.spawnJJ(["operation", "restore", id], {
-          timeout: 5000,
-          cwd: this.repositoryRoot,
-        })
-      )
+      await this.spawnAndHandleJJCommand(["operation", "restore", id], {
+        timeout: 5000,
+        cwd: this.repositoryRoot,
+      })
     ).toString();
   }
 

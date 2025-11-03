@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { parseRenamePaths } from "../repository"; // Adjust path as needed
-import { execJJPromise, getTestWorkspacePath } from "./utils";
+import { execJJPromise, getTestWorkspacePath } from "./testUtils";
 import { getExtensionApi, restoreOriginalOperation } from "./extensionUtils";
 
 import * as fs from "fs/promises";

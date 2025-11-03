@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import os from "os";
 
 import { runTests } from "@vscode/test-electron";
-import { execJJPromise } from "./utils";
+import { execJJPromise } from "./testUtils";
 
 async function prepareWorkspace(): Promise<{
   workspacePath: string;
