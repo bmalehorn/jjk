@@ -1815,12 +1815,27 @@ export class JJRepository {
   }
 
   /**
-   * @returns undefined if the file was not modified in `rev`
+   * Returns the contents of the filepath at the merge of all changes at `rev-`.
+   * So, it returns the contents of the file before it was modified by `rev`.
+   *
+   * fakeeditor usage: It uses fake-editor as a diff tool, which does not
+   * actually diff but reports all its arguments back to this extension. One of
+   * the arguments is the "left" file, a temporary file created by jj, with the
+   * contents of the file before it was changed. This function then reads that
+   * file & kills the fake-editor process.
+   *
+   * This is done so that if the current commit has more than one parent, jj
+   * will create a merge of all parents and pass that to fake-editor. This
+   * differs from `jj file show -r <rev>- <filepath>`, which simply fails if
+   * `<rev>` has multiple parents.
+   *
+   * @returns The file contents. If the file was not modified in `rev`, returns
+   * "NOT_MODIFIED". If the file was added in `rev`, returns "ADDED".
    */
   async getDiffOriginal(
     rev: string,
     filepath: string
-  ): Promise<Buffer | undefined> {
+  ): Promise<Buffer | "NOT_MODIFIED" | "ADDED"> {
     const { cleanup, envVars } = await prepareFakeeditor();
 
     const output = await new Promise<string>((resolve, reject) => {
@@ -1929,6 +1944,8 @@ export class JJRepository {
 
     try {
       let pathInLeftFolder: string | undefined;
+      let added = false;
+      const normalizedTargetPath = path.normalize(filepath).replace(/\\/g, "/");
 
       for (const summaryLineRaw of summaryLines) {
         const summaryLine = summaryLineRaw.trim();
@@ -1936,15 +1953,22 @@ export class JJRepository {
         const type = summaryLine.charAt(0);
         const file = summaryLine.slice(2).trim();
 
-        if (type === "M" || type === "D") {
+        if (type === "M" || type === "D" || type === "A") {
           const normalizedSummaryPath = path
             .join(this.repositoryRoot, file)
             .replace(/\\/g, "/");
-          const normalizedTargetPath = path
-            .normalize(filepath)
-            .replace(/\\/g, "/");
-          if (pathEquals(normalizedSummaryPath, normalizedTargetPath)) {
+          if (
+            (type === "M" || type === "D") &&
+            pathEquals(normalizedSummaryPath, normalizedTargetPath)
+          ) {
             pathInLeftFolder = file;
+            break;
+          } else if (
+            type === "A" &&
+            pathEquals(normalizedSummaryPath, normalizedTargetPath)
+          ) {
+            // File was added in this revision
+            added = true;
             break;
           }
         } else if (type === "R" || type === "C") {
@@ -1952,12 +1976,8 @@ export class JJRepository {
           if (!parseResult) {
             throw new Error(`Unexpected rename line: ${summaryLineRaw}`);
           }
-
           const normalizedSummaryPath = path
             .join(this.repositoryRoot, parseResult.toPath)
-            .replace(/\\/g, "/");
-          const normalizedTargetPath = path
-            .normalize(filepath)
             .replace(/\\/g, "/");
           if (pathEquals(normalizedSummaryPath, normalizedTargetPath)) {
             // The file was renamed TO our target filepath, so we need its OLD path from the left folder
@@ -1982,7 +2002,10 @@ export class JJRepository {
       }
 
       // File was either added or unchanged in this revision.
-      return undefined;
+      if (added) {
+        return "ADDED";
+      }
+      return "NOT_MODIFIED";
     } finally {
       try {
         process.kill(parseInt(fakeEditorPID), "SIGTERM");

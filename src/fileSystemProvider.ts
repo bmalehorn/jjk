@@ -36,6 +36,7 @@ export class JJFileSystemProvider implements FileSystemProvider {
     this._onDidChangeFile.event;
 
   private changedRepositoryRoots = new Set<string>();
+  // A cache of filename to the last time it was fetched.
   private cache = new Map<string, CacheRow>();
   private mtime = Date.now();
   private disposables: Disposable[] = [];
@@ -122,6 +123,25 @@ export class JJFileSystemProvider implements FileSystemProvider {
   }
 
   async readFile(uri: Uri): Promise<Uint8Array> {
+    // _formatted =
+    // 'jj:/Users/brianmalehorn/sample-jj-repo/hello2.txt?%7B%22diffOriginalRev%22%3A%22%40%22%7D'
+    // _fsPath =
+    // '/Users/brianmalehorn/sample-jj-repo/hello2.txt'
+    // authority =
+    // ''
+    // fragment =
+    // ''
+    // fsPath =
+    // ƒ fsPath(){return this._fsPath||(this._fsPath=Ad(this,!1)),this._fsPath}
+    // path =
+    // '/Users/brianmalehorn/sample-jj-repo/hello2.txt'
+    // query =
+    // '{"diffOriginalRev":"@"}'
+    // scheme =
+    // 'jj'
+
+    // `diffOriginalRev: "@"` seems suspicious, I wonder how it will
+    // show a diff gutter for changes IN @.
     const params = getParams(uri);
 
     const repository = this.repositories.getRepositoryFromUri(uri);
@@ -139,7 +159,7 @@ export class JJFileSystemProvider implements FileSystemProvider {
         params.diffOriginalRev,
         uri.fsPath
       );
-      if (!originalContent) {
+      if (originalContent === "NOT_MODIFIED") {
         try {
           const data = await repository.readFile(
             params.diffOriginalRev,
@@ -152,6 +172,9 @@ export class JJFileSystemProvider implements FileSystemProvider {
           }
           throw e;
         }
+      } else if (originalContent === "ADDED") {
+        // Make the diff show everything as newly-added lines.
+        return Buffer.from("");
       }
       return originalContent;
     } else {
