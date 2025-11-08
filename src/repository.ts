@@ -848,7 +848,7 @@ function getResourceStateCommand(
 export class JJRepository {
   statusCache: RepositoryStatus | undefined;
   gitFetchPromise: Promise<void> | undefined;
-  concurrentExecutionLock: Lock = new Lock();
+  private concurrentExecutionLock: Lock = new Lock();
 
   constructor(
     public repositoryRoot: string,
@@ -881,7 +881,7 @@ export class JJRepository {
   //   b. all logically write operations are run with preventConcurrent
   // There is a tradeoff in option a depending on if the command makes more
   // sense with stale results or slow results.
-  async spawnAndHandleJJCommand(
+  private async spawnAndHandleJJCommand(
     args: string[],
     options: Parameters<typeof spawn>[2] & { cwd: string }
   ): Promise<Buffer<ArrayBufferLike>> {

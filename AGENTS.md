@@ -11,9 +11,9 @@
 
 - `npm install` once per clone to pull VS Code harnesses and codicons.
 - `npm run compile` performs type-checking, linting, and a production-mode esbuild bundle for the extension.
+- `npm test` bundles the test suite and executes it in the VS Code runner; use before pushing.
 - `npm run watch` starts parallel `esbuild` and `tsc` watchers for quick feedback during feature work.
 - `npm run package` prepares a distributable: copies web assets, config, codicons, and fake editor binaries—run before local extension installs or releases.
-- `npm test` bundles the test suite and executes it in the VS Code runner; use before pushing.
 - `npm run build-fakeeditor` rebuilds the Zig helper after changing `src/fakeeditor/` sources or updating Zig.
 
 ## Coding Style & Naming Conventions
@@ -21,7 +21,7 @@
 - Write TypeScript with 2-space indentation, trailing commas, and double quotes; ESLint (`eslint.config.mjs`) enforces these rules.
 - Name modules in descriptive camelCase (`graphWebview.ts`, `operationLogTreeView.ts`); co-locate tests with `.test.ts` suffixes mirroring the source name.
 - Prefer `async`/`await`, guard vscode API calls against undefined workspace state, and log via the shared `logger`.
-- Run `npm run lint` plus `npx prettier --check "src/**/*.ts"` before submitting; use Prettier for formatting adjustments.
+- Run `npm run lint` before submitting.
 
 ## Testing Guidelines
 
@@ -30,13 +30,14 @@
 - Execute `npm test` locally; aim for coverage on new change-management paths and error handling. Document any flaky cases in the PR.
 - Run `MOCHA_GREP=<pattern> npm test` to focus on specific tests during development.
 
-## Commit & Pull Request Guidelines
-
-- Follow existing history: concise, imperative subjects with optional scope (`repository: run readonly commands with --ignore-working-copy`); keep subjects under ~70 characters.
-- PRs must summarize behavior changes, list verification steps (e.g., `npm test`), and link related issues. Include GIFs or screenshots for UI tweaks using assets under `images/`.
-- Avoid committing regenerated `dist/` artifacts unless the release packaging is the focus; call this out in the PR description when included.
-
 ## Extension Setup Notes
 
 - Ensure the `jj` CLI is installed and reachable on `$PATH`; mention alternative paths when adjusting `jjk.jjPath` defaults.
 - Document changes to `dist/config.toml` or other persisted settings so users know when manual workspace updates are required.
+
+## `jj` command-line tool help
+
+- This extension interfaces with the `jj` command-line tool.
+- Get information on `jj` commands by running `jj --help`, `jj <command> --help`, etc.
+- Do not run `jj` commands in this repo. Only write code to run `jj` commands in tests that run in the test repo.
+- Do not run `git` commands at all. Do not create commits.

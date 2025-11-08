@@ -21,7 +21,10 @@ function isExecException(e: unknown): e is ExecException {
   return typeof e === "object" && e !== null && "code" in e;
 }
 
-suite("fakeeditor", () => {
+// Skip fakeeditor tests - they take a while since they sleep for 5 seconds each
+// to test 5 second timeout behavior. They are only relevant to run if you are
+// making modifications to `src/fakeeditor`.
+suite.skip("fakeeditor", () => {
   initExtensionDir(vscode.extensions.getExtension("jjk.jjk")!.extensionUri);
 
   test("fails when JJ_FAKEEDITOR_SIGNAL_DIR is missing", async () => {
