@@ -610,4 +610,89 @@ suite("repository", () => {
       "expected working copy to be clean after moving entire change"
     );
   });
+
+  test("operationLog reports snapshot entries for read-only commands", async () => {
+    const repository = await setupRepository();
+    const initialOps = await repository.operationLog();
+    const baselineIds = new Set(initialOps.map((op) => op.id));
+
+    const snapshotFile = path.join(workspacePath, "operation-log-status.txt");
+    await fs.writeFile(
+      snapshotFile,
+      `snapshot ${Date.now()}\n`,
+      "utf8"
+    );
+    await execJJPromise("status", { cwd: workspacePath });
+
+    const operations = await repository.operationLog();
+    const newOps = operations.filter((op) => !baselineIds.has(op.id));
+    assert.ok(
+      newOps.length > 0,
+      "expected jj status to record a snapshot operation"
+    );
+
+    const snapshotOp = newOps.find(
+      (op) => op.snapshot && op.tags.includes("status")
+    );
+    assert.ok(snapshotOp, "expected to find a snapshot operation for status");
+    assert.ok(snapshotOp.id.length > 0, "expected snapshot op id to be set");
+    assert.ok(
+      snapshotOp.tags.includes("status"),
+      "expected snapshot tags to mention the status command"
+    );
+    assert.ok(
+      !Number.isNaN(Date.parse(snapshotOp.start)),
+      "expected snapshot start timestamp to be parseable"
+    );
+  });
+
+  test("operationLog records mutating commands ahead of earlier snapshots", async () => {
+    const repository = await setupRepository();
+    const initialOps = await repository.operationLog();
+    const baselineIds = new Set(initialOps.map((op) => op.id));
+
+    const logFile = path.join(workspacePath, "operation-log-describe.txt");
+    await fs.writeFile(logFile, `log ${Date.now()}\n`, "utf8");
+
+    // Ensure there is a snapshot operation to compare ordering against.
+    await execJJPromise("status", { cwd: workspacePath });
+
+    const marker = `operation log test ${Date.now()}`;
+    await execJJPromise(`describe -m "${marker}"`, { cwd: workspacePath });
+
+    const operations = await repository.operationLog();
+    const newOps = operations.filter((op) => !baselineIds.has(op.id));
+    assert.ok(
+      newOps.length >= 2,
+      "expected status and describe to add operations"
+    );
+
+    const snapshotIndex = newOps.findIndex(
+      (op) => op.snapshot && op.tags.includes("status")
+    );
+    const describeIndex = newOps.findIndex((op) =>
+      op.tags.includes(marker)
+    );
+    assert.ok(snapshotIndex !== -1, "expected snapshot operation to be logged");
+    assert.ok(describeIndex !== -1, "expected describe operation to be logged");
+
+    const describeOp = newOps[describeIndex];
+    assert.strictEqual(
+      describeOp.snapshot,
+      false,
+      "expected describe operation to be marked as non-snapshot"
+    );
+    assert.ok(
+      describeOp.tags.includes("describe"),
+      "expected describe tags to include the describe command"
+    );
+    assert.ok(
+      describeOp.tags.includes(marker),
+      "expected describe tags to include the custom marker"
+    );
+    assert.ok(
+      describeIndex < snapshotIndex,
+      "expected the describe operation (newest) to appear before the snapshot"
+    );
+  });
 });
