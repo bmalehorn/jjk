@@ -32,6 +32,7 @@ export function execJJPromise(
 ): Promise<{ stdout: string; stderr: string }> {
   const jjPath = getJJPath();
   const command = `${jjPath} ${args}`;
+  console.log("execJJPromise:", command);
   return execPromise(command, options);
 }
 

@@ -13,6 +13,13 @@ export async function getExtensionApi(): Promise<ExtensionApi> {
   const api = (await extension.activate()) as ExtensionApi | undefined;
   assert.ok(api, "Extension did not return test API");
 
+  // Disable automatically running `jj` commands in the extension.
+  // This fixes an issue where commands would lose changes due to
+  // "concurrent checkout" on the op log - from running `jj`
+  // both in the test itself and through automatic updates in the
+  // extension.
+  api.disableAutoUpdate();
+
   await api.getWorkspaceSourceControlManager().refresh();
   return api;
 }

@@ -552,6 +552,11 @@ export class RepositorySourceControlManager {
   status: RepositoryStatus | undefined;
   parentShowResults: Map<string, Show> = new Map();
 
+  // Allow passively running `jj` commands.
+  // We disable this in tests to avoid interference with the test running its
+  // own `jj` commands.
+  autoUpdateEnabled: boolean = true;
+
   constructor(
     public repositoryRoot: string,
     private decorationProvider: JJDecorationProvider,
@@ -609,6 +614,9 @@ export class RepositorySourceControlManager {
     );
     repoChangedWatchEvent(
       async (_uri) => {
+        if (!this.autoUpdateEnabled) {
+          return;
+        }
         this.fileSystemProvider.onDidChangeRepository({
           repositoryRoot: this.repositoryRoot,
         });
@@ -798,6 +806,14 @@ export class RepositorySourceControlManager {
       this.trackedFiles,
       this.conflictedFilesByChange
     );
+  }
+
+  enableAutoUpdate() {
+    this.autoUpdateEnabled = true;
+  }
+
+  disableAutoUpdate() {
+    this.autoUpdateEnabled = false;
   }
 
   dispose() {

@@ -27,9 +27,12 @@ import { match } from "arktype";
 import { getActiveTextEditorDiff, pathEquals } from "./utils";
 import { RepositorySourceControlManager } from "./repository";
 
+// The object is returned to our test harness.
 export type ExtensionApi = {
   getWorkspaceSourceControlManager(): WorkspaceSourceControlManager;
   getRepositories(): JJRepository[];
+  disableAutoUpdate(): void;
+  enableAutoUpdate(): void;
 };
 
 export async function activate(
@@ -1561,7 +1564,15 @@ export async function activate(
     isInitialized = true;
   }
 
+  // Allow passively running `jj` commands.
+  // We disable this in tests to avoid interference with the test running its
+  // own `jj` commands.
+  let autoUpdateEnabled = true;
+
   async function poll() {
+    if (!autoUpdateEnabled) {
+      return;
+    }
     const didUpdate = await workspaceSCM.refresh();
     if (didUpdate) {
       setSelectedRepo(getSelectedRepo());
@@ -1727,9 +1738,20 @@ export async function activate(
   });
 
   return {
-    getWorkspaceSourceControlManager: () => workspaceSCM,
-    getRepositories: () =>
-      workspaceSCM.repoSCMs.map((repoSCM) => repoSCM.repository),
+    getWorkspaceSourceControlManager() {
+      return workspaceSCM;
+    },
+    getRepositories() {
+      return workspaceSCM.repoSCMs.map((repoSCM) => repoSCM.repository);
+    },
+    disableAutoUpdate() {
+      autoUpdateEnabled = false;
+      workspaceSCM.repoSCMs.forEach((repoSCM) => repoSCM.disableAutoUpdate());
+    },
+    enableAutoUpdate() {
+      autoUpdateEnabled = true;
+      workspaceSCM.repoSCMs.forEach((repoSCM) => repoSCM.enableAutoUpdate());
+    },
   };
 }
 
