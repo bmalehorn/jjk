@@ -445,4 +445,74 @@ suite("repository", () => {
       "expected modification after refresh"
     );
   });
+
+  test("show returns parsed change for working copy", async () => {
+    const repository = await setupRepository();
+
+    const trackedFile = path.join(workspacePath, "show-file.txt");
+    await fs.writeFile(trackedFile, "line1\n", "utf8");
+    await execJJPromise("describe -m 'base change'", { cwd: workspacePath });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    await fs.writeFile(trackedFile, "line1\nline2\n", "utf8");
+    await execJJPromise("describe -m 'working copy change'", {
+      cwd: workspacePath,
+    });
+
+    const showResult = await repository.show("@");
+    assert.strictEqual(showResult.change.description, "working copy change");
+    assert.strictEqual(showResult.fileStatuses.length, 1);
+    assert.strictEqual(showResult.fileStatuses[0].type, "M");
+    assert.strictEqual(showResult.fileStatuses[0].file, "show-file.txt");
+    assert.ok(
+      showResult.fileStatuses[0].path.endsWith("show-file.txt"),
+      "expected absolute path for show file"
+    );
+  });
+
+  test("showAll returns entries for parent and working copy changes", async () => {
+    const repository = await setupRepository();
+
+    const parentFile = path.join(workspacePath, "parent.txt");
+    await fs.writeFile(parentFile, "parent\n", "utf8");
+    await execJJPromise("describe -m 'parent change'", { cwd: workspacePath });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    const wcFile = path.join(workspacePath, "working-copy.txt");
+    await fs.writeFile(wcFile, "wc contents\n", "utf8");
+    await execJJPromise("describe -m 'working copy edit'", {
+      cwd: workspacePath,
+    });
+
+    const showResults = await repository.showAll(["@", "@-"]);
+    assert.strictEqual(
+      showResults.length,
+      2,
+      "expected two entries for @ and @-"
+    );
+    const parentResult = showResults.find(
+      (result) => result.change.description === "parent change"
+    );
+    const wcResult = showResults.find(
+      (result) => result.change.description === "working copy edit"
+    );
+    assert.ok(parentResult, "expected parent change show result");
+    assert.ok(wcResult, "expected working copy show result");
+    assert.strictEqual(parentResult?.fileStatuses.length, 1);
+    assert.strictEqual(parentResult?.fileStatuses[0].type, "A");
+    assert.strictEqual(parentResult?.fileStatuses[0].file, "parent.txt");
+    assert.strictEqual(wcResult?.fileStatuses.length, 1);
+    assert.strictEqual(wcResult?.fileStatuses[0].type, "A");
+    assert.strictEqual(wcResult?.fileStatuses[0].file, "working-copy.txt");
+  });
+
+  test("show rejects when no revision matches", async () => {
+    const repository = await setupRepository();
+
+    await assert.rejects(
+      repository.show("none()"),
+      /No output from jj log/,
+      "expected show to reject when revset matches nothing"
+    );
+  });
 });
