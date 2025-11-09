@@ -515,4 +515,99 @@ suite("repository", () => {
       "expected show to reject when revset matches nothing"
     );
   });
+
+  test("squashContent moves selected lines into the parent revision", async () => {
+    const repository = await setupRepository();
+
+    const filePath = path.join(workspacePath, "squash-content.txt");
+    const relativePath = path
+      .relative(workspacePath, filePath)
+      .split(path.sep)
+      .join(path.posix.sep);
+
+    await fs.writeFile(filePath, "alpha\nbeta\n", "utf8");
+    await execJJPromise("describe -m 'base for squashContent'", {
+      cwd: workspacePath,
+    });
+    await execJJPromise("new", { cwd: workspacePath });
+    await fs.writeFile(
+      filePath,
+      "alpha\nbeta\nsquash me\nkeep me\n",
+      "utf8"
+    );
+    await execJJPromise("describe -m 'add two lines'", {
+      cwd: workspacePath,
+    });
+
+    await repository.squashContent({
+      fromRev: "@",
+      toRev: "@-",
+      filepath: filePath,
+      content: "alpha\nbeta\nsquash me\n",
+    });
+
+    const parentContents = await execJJPromise(
+      `file show -r @- ${relativePath}`,
+      { cwd: workspacePath }
+    );
+    const workingCopyContents = await execJJPromise(
+      `file show -r @ ${relativePath}`,
+      { cwd: workspacePath }
+    );
+
+    assert.strictEqual(
+      parentContents.stdout,
+      "alpha\nbeta\nsquash me\n",
+      "expected parent revision to include selected content"
+    );
+    assert.strictEqual(
+      workingCopyContents.stdout,
+      "alpha\nbeta\nsquash me\nkeep me\n",
+      "expected working copy to retain unsquashed lines"
+    );
+  });
+
+  test("squashContent can move an entire new file into a nested destination", async () => {
+    const repository = await setupRepository();
+
+    const nestedPath = path.join(workspacePath, "src", "features", "info.txt");
+    const relativeNestedPath = path
+      .relative(workspacePath, nestedPath)
+      .split(path.sep)
+      .join(path.posix.sep);
+    await fs.mkdir(path.dirname(nestedPath), { recursive: true });
+
+    await fs.writeFile(path.join(workspacePath, "baseline.txt"), "base\n");
+    await execJJPromise("describe -m 'baseline change'", { cwd: workspacePath });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    await fs.writeFile(nestedPath, "nested content\n", "utf8");
+    await execJJPromise("describe -m 'add nested file'", {
+      cwd: workspacePath,
+    });
+
+    await repository.squashContent({
+      fromRev: "@",
+      toRev: "@-",
+      filepath: nestedPath,
+      content: "nested content\n",
+    });
+
+    const destinationContents = await execJJPromise(
+      `file show -r @- ${relativeNestedPath}`,
+      { cwd: workspacePath }
+    );
+    const status = await repository.getStatus();
+
+    assert.strictEqual(
+      destinationContents.stdout,
+      "nested content\n",
+      "expected destination revision to gain entire nested file"
+    );
+    assert.strictEqual(
+      status.fileStatuses.length,
+      0,
+      "expected working copy to be clean after moving entire change"
+    );
+  });
 });
