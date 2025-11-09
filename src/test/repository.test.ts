@@ -233,6 +233,139 @@ suite("repository", () => {
     );
   });
 
+  test("getDiffOriginal returns parent content for modified file", async () => {
+    const repository = await setupRepository();
+    // It's necessary to use `repository.repositoryRoot` instead of `workspacePath`
+    // because `workspacePath` includes a symlink that will get normalized
+    // by fake-editor (or something along the path), leading to this test failing
+    // because the paths don't match.
+    const repoPath = repository.repositoryRoot;
+
+    const filePath = path.join(repoPath, "diff-original-modified.txt");
+    await fs.writeFile(filePath, "baseline\n", "utf8");
+    await execJJPromise("describe -m 'baseline diff original'", {
+      cwd: workspacePath,
+    });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    await fs.writeFile(filePath, "baseline\nupdated\n", "utf8");
+    await execJJPromise("describe -m 'modify diff original file'", {
+      cwd: workspacePath,
+    });
+
+    const original = await repository.getDiffOriginal("@", filePath);
+    assert.ok(original !== "ADDED", "expected not ADDED sentinel");
+    assert.ok(
+      original !== "NOT_MODIFIED",
+      "expected not NOT_MODIFIED sentinel"
+    );
+    assert.strictEqual(
+      original.toString(),
+      "baseline\n",
+      "expected original content from parent revision"
+    );
+  });
+
+  test("getDiffOriginal returns parent content for deleted file", async () => {
+    const repository = await setupRepository();
+    const repoPath = repository.repositoryRoot;
+
+    const filePath = path.join(repoPath, "diff-original-deleted.txt");
+    await fs.writeFile(filePath, "to delete\n", "utf8");
+    await execJJPromise("describe -m 'baseline delete case'", {
+      cwd: workspacePath,
+    });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    await fs.rm(filePath);
+    await execJJPromise("describe -m 'delete diff original file'", {
+      cwd: workspacePath,
+    });
+
+    const original = await repository.getDiffOriginal("@", filePath);
+    assert.ok(Buffer.isBuffer(original), "expected buffer for deleted file");
+    assert.strictEqual(
+      original.toString(),
+      "to delete\n",
+      "expected deleted file contents from parent revision"
+    );
+  });
+
+  test("getDiffOriginal resolves renamed files", async () => {
+    const repository = await setupRepository();
+    const repoPath = repository.repositoryRoot;
+
+    const oldPath = path.join(repoPath, "diff-original-old-name.txt");
+    const newPath = path.join(repoPath, "diff-original-new-name.txt");
+    await fs.writeFile(oldPath, "rename baseline\n", "utf8");
+    await execJJPromise("describe -m 'baseline rename case'", {
+      cwd: workspacePath,
+    });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    await fs.rename(oldPath, newPath);
+    await execJJPromise("describe -m 'rename diff original file'", {
+      cwd: workspacePath,
+    });
+
+    const original = await repository.getDiffOriginal("@", newPath);
+    assert.ok(Buffer.isBuffer(original), "expected buffer for renamed file");
+    assert.strictEqual(
+      original.toString(),
+      "rename baseline\n",
+      "expected original content from old path"
+    );
+  });
+
+  test("getDiffOriginal reports ADDED for new files", async () => {
+    const repository = await setupRepository();
+    const repoPath = repository.repositoryRoot;
+
+    const addedPath = path.join(repoPath, "diff-original-added.txt");
+    const baselinePath = path.join(
+      repoPath,
+      "diff-original-added-baseline.txt"
+    );
+    await fs.writeFile(baselinePath, "base\n");
+    await execJJPromise("describe -m 'baseline added case'", {
+      cwd: workspacePath,
+    });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    await fs.writeFile(addedPath, "fresh contents\n", "utf8");
+    await execJJPromise("describe -m 'add diff original file'", {
+      cwd: workspacePath,
+    });
+
+    const original = await repository.getDiffOriginal("@", addedPath);
+    assert.strictEqual(original, "ADDED", "expected ADDED sentinel");
+  });
+
+  test("getDiffOriginal reports NOT_MODIFIED when file untouched", async () => {
+    const repository = await setupRepository();
+    const repoPath = repository.repositoryRoot;
+
+    const untouchedPath = path.join(repoPath, "diff-original-untouched.txt");
+    const changedPath = path.join(repoPath, "diff-original-other.txt");
+    await fs.writeFile(untouchedPath, "stable\n", "utf8");
+    await execJJPromise("describe -m 'baseline untouched case'", {
+      cwd: workspacePath,
+    });
+    await execJJPromise("new", { cwd: workspacePath });
+
+    await fs.writeFile(changedPath, "other change\n", "utf8");
+    await execJJPromise("describe -m 'change unrelated file'", {
+      cwd: workspacePath,
+    });
+
+    const original = await repository.getDiffOriginal("@", untouchedPath);
+    assert.strictEqual(
+      original,
+      "NOT_MODIFIED",
+      "expected NOT_MODIFIED sentinel for untouched file"
+    );
+  });
+
   test("getStatus reports added, modified, and deleted files", async () => {
     const repository = await setupRepository();
 
