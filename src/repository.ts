@@ -6,7 +6,7 @@ import { getParams, toJJUri } from "./uri";
 import type { JJDecorationProvider } from "./decorationProvider";
 import { logger } from "./logger";
 import type { ChildProcess } from "child_process";
-import { anyEvent, Lock, pathEquals } from "./utils";
+import { anyEvent, Lock, Deduplicator, pathEquals } from "./utils";
 import { JJFileSystemProvider } from "./fileSystemProvider";
 import * as os from "os";
 import * as crypto from "crypto";
@@ -865,6 +865,7 @@ export class JJRepository {
   statusCache: RepositoryStatus | undefined;
   gitFetchPromise: Promise<void> | undefined;
   private concurrentExecutionLock: Lock = new Lock();
+  private deduplicator: Deduplicator = new Deduplicator();
 
   constructor(
     public repositoryRoot: string,
@@ -926,17 +927,19 @@ export class JJRepository {
     // Anyways: neither point matters much if the queue is never very backed up
     // and generally runs things immediately.
     const deduplicationKey = JSON.stringify({ finalArgs, options });
-    const result = await this.concurrentExecutionLock.acquire(async () => {
-      const startedAt = new Date();
-      const queueTime = +startedAt - +enqueuedAt;
-      logger.info(
-        `spawnAndHandleJJCommand: started jj args=${args.join(" ")}, queueTime=${queueTime}`
-      );
+    const result = await this.deduplicator.run(deduplicationKey, async () => {
+      return await this.concurrentExecutionLock.acquire(async () => {
+        const startedAt = new Date();
+        const queueTime = +startedAt - +enqueuedAt;
+        logger.info(
+          `spawnAndHandleJJCommand: started jj args=${args.join(" ")}, queueTime=${queueTime}`
+        );
 
-      const childProcess = spawnJJ(this.jjPath, finalArgs, options);
-      const result = await handleJJCommand(childProcess);
-      return result;
-    }, deduplicationKey);
+        const childProcess = spawnJJ(this.jjPath, finalArgs, options);
+        const result = await handleJJCommand(childProcess);
+        return result;
+      });
+    });
     const endedAt = new Date();
     const endToEndTime = +endedAt - +enqueuedAt;
     logger.info(

@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { Lock } from "../utils";
+import { Lock, Deduplicator } from "../utils";
 
 suite("utils", () => {
   test("Lock: should make things run in sequence", async () => {
@@ -33,19 +33,20 @@ suite("utils", () => {
     ]);
   });
 
-  test("Lock: deduplicationKey: should deduplicate the same messages and return the same results", async () => {
-    const lock = new Lock();
+  test("Deduplicator: should deduplicate the same messages and return the same results", async () => {
+    const deduplicator = new Deduplicator();
     const events: string[] = [];
     const results: string[] = [];
 
     async function runFunction(returnValue: string, sleepTime: number) {
-      const result = await lock.acquire(async () => {
+      // use deduplicationKey of the return value
+      const result = await deduplicator.run(returnValue, async () => {
         events.push(`start ${returnValue}`);
         await new Promise((resolve) => setTimeout(resolve, sleepTime));
         events.push(`end ${returnValue}`);
         return returnValue;
-        // use deduplicationKey of the return value
-      }, returnValue);
+      });
+
       // assert no crossed wires - we got the result we returned, not from
       // another call.
       assert.equal(returnValue, result);
@@ -57,7 +58,7 @@ suite("utils", () => {
       runFunction("1", 100),
     ]);
 
-    assert.deepEqual(events, ["start 1", "end 1", "start 2", "end 2"]);
+    assert.deepEqual(events, ["start 1", "start 2", "end 1", "end 2"]);
     // all results were accounted for.
     assert.deepEqual([...results].sort(), ["1", "1", "2"]);
   });
